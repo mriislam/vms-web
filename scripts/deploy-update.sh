@@ -49,12 +49,12 @@ chown -R "${APP_USER}:${APP_USER}" "$DEPLOY_DIR"
 # ── 2. Rebuild backend ───────────────────────────────────────────
 hdr "2. Rebuild Backend"
 info "Running: mvn clean package -DskipTests  (~60 seconds)..."
-sudo -u "$APP_USER" bash -c "
-    export JAVA_HOME='${JAVA_HOME_PATH}'
-    export PATH='${MAVEN_HOME}/bin:${JAVA_HOME_PATH}/bin:\$PATH'
-    cd '${DEPLOY_DIR}/backend'
-    mvn clean package -DskipTests 2>&1 | tee -a '${LOG_DIR}/build.log' | tail -5
-"
+sudo -u "$APP_USER" env \
+    JAVA_HOME="${JAVA_HOME_PATH}" \
+    PATH="${MAVEN_HOME}/bin:${JAVA_HOME_PATH}/bin:/usr/local/bin:/usr/bin:/bin" \
+    HOME="${DEPLOY_DIR}" \
+    bash -c "cd '${DEPLOY_DIR}/backend' && mvn clean package -DskipTests" \
+    2>&1 | /usr/bin/tee -a "${LOG_DIR}/build.log" | /usr/bin/tail -8
 [[ -f "$BACKEND_JAR" ]] && ok "JAR rebuilt: ${BACKEND_JAR}" || fail "Build failed — check ${LOG_DIR}/build.log"
 
 # ── 3. Rebuild frontend ──────────────────────────────────────────

@@ -198,12 +198,12 @@ fi
 # ── 11. Build backend ────────────────────────────────────────────
 hdr "11. Build Backend"
 info "Running: mvn clean package -DskipTests  (~60 seconds)..."
-sudo -u "$APP_USER" bash -c "
-    export JAVA_HOME='${JAVA_HOME_PATH}'
-    export PATH='${MAVEN_HOME}/bin:${JAVA_HOME_PATH}/bin:\$PATH'
-    cd '${DEPLOY_DIR}/backend'
-    mvn clean package -DskipTests 2>&1 | tee -a '${LOG_DIR}/build.log' | tail -6
-"
+sudo -u "$APP_USER" env \
+    JAVA_HOME="${JAVA_HOME_PATH}" \
+    PATH="${MAVEN_HOME}/bin:${JAVA_HOME_PATH}/bin:/usr/local/bin:/usr/bin:/bin" \
+    HOME="${DEPLOY_DIR}" \
+    bash -c "cd '${DEPLOY_DIR}/backend' && mvn clean package -DskipTests" \
+    2>&1 | /usr/bin/tee -a "${LOG_DIR}/build.log" | /usr/bin/tail -8
 [[ -f "$BACKEND_JAR" ]] && ok "JAR ready: ${BACKEND_JAR}" || fail "Maven build failed — check ${LOG_DIR}/build.log"
 
 # ── 12. Systemd service ──────────────────────────────────────────
