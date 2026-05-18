@@ -29,6 +29,20 @@ public class VtsController {
     /** Live position cycles every 15 minutes — full route visible in one watch session */
     private static final long CYCLE_SECS = 900L;
 
+    private static final DateTimeFormatter POS_FMT = DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm:ss a");
+
+    /* ── Landmark types and local area names for detailed location ── */
+    private static final String[] LANDMARK_TYPES = {
+        "Bus Stand", "Police Station", "Bazar", "Railway Station",
+        "Hospital", "School", "Post Office", "Union Parishad", "Upazila Complex", "Town Hall"
+    };
+    private static final String[] LOCAL_AREAS = {
+        "Sadar", "Kotwali", "Shibpur", "Bangura", "Tarabganj",
+        "Kahaloo", "Sherpur", "Bajitpur", "Austagram", "Palash",
+        "Ghatail", "Narsingdi", "Raipur", "Laksham", "Muksudpur",
+        "Sreepur", "Kapasia", "Kaliakair", "Manikdi", "Tongi"
+    };
+
     /* ── Bangladesh GPS coordinates ─────────────────────────────── */
     private static final Map<String, double[]> CITY_COORDS = new LinkedHashMap<>();
     static {
@@ -430,7 +444,7 @@ public class VtsController {
         else                      speedBase = 65;
         Random rng = new Random(nowSeconds / 30 + d.getId()); // variation changes every 30 s
         speedBase += (rng.nextDouble() - 0.5) * 18;
-        int speed = (int) Math.max(20, Math.min(95, speedBase));
+        double speed = Math.round(Math.max(20.0, Math.min(95.0, speedBase)) * 100.0) / 100.0;
 
         // Trail: last 15 minutes — 30 points at 30-second intervals
         // Points whose fraction exceeds current fraction belong to the previous cycle; skip them
@@ -459,6 +473,17 @@ public class VtsController {
         GpsDevice dev = gpsDeviceRepo.findByVehicleReg(d.getVehicleReg()).orElse(null);
         int distKm = d.getDistance() != null && d.getDistance() > 0 ? d.getDistance() : 150;
 
+        // Full-precision coords (6 decimal places) for the info card
+        double latFull = Math.round(pos[0] * 1_000_000.0) / 1_000_000.0;
+        double lngFull = Math.round(pos[1] * 1_000_000.0) / 1_000_000.0;
+
+        // Deterministic seed that changes every 30 s so landmark stays stable during a refresh
+        long locSeed = nowSeconds / 30 + (long)(latFull * 1000) + d.getId();
+        String detailedLocation = computeDetailedLocation(
+            pos[0], pos[1],
+            interpolateLocationName(d.getOrigin(), d.getDestination(), fraction),
+            locSeed);
+
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("key",          d.getId());
         m.put("dispatchNo",   d.getDispatchNo());
@@ -471,13 +496,14 @@ public class VtsController {
         m.put("route",        d.getOrigin() + " → " + d.getDestination());
         m.put("distance",     distKm);
         m.put("elapsedKm",    (int)(distKm * fraction));
-        m.put("speed",        (double) speed);
-        m.put("lat",          Math.round(pos[0] * 10000.0) / 10000.0);
-        m.put("lng",          Math.round(pos[1] * 10000.0) / 10000.0);
+        m.put("speed",        speed);
+        m.put("lat",          latFull);
+        m.put("lng",          lngFull);
         m.put("fuel",         fuel);
         m.put("heading",      calcHeading(originCoords, destCoords));
         m.put("status",       "moving");
-        m.put("location",     interpolateLocationName(d.getOrigin(), d.getDestination(), fraction));
+        m.put("location",     detailedLocation);
+        m.put("positionTime", POS_FMT.format(tNow));
         m.put("purpose",      d.getPurpose());
         m.put("approvedBy",   d.getApprovedBy());
         m.put("lastUpdate",   "just now");
@@ -639,6 +665,50 @@ public class VtsController {
 
     private String cleanCity(String loc) {
         return loc == null ? "" : loc.replaceAll("(?i) HQ| Office| Port", "").trim();
+    }
+
+    /**
+     * Builds a GPS-tracker-style location string:
+     * "Comilla, 0.231 Km East From Police Station Chandina"
+     */
+    private String computeDetailedLocation(double lat, double lng, String routeLabel, long seed) {
+        // Find the nearest known city/place
+        String nearestKey = "dhaka";
+        double minDist = Double.MAX_VALUE;
+        for (Map.Entry<String, double[]> e : CITY_COORDS.entrySet()) {
+            double dist = haversineKm(lat, lng, e.getValue()[0], e.getValue()[1]);
+            if (dist < minDist) { minDist = dist; nearestKey = e.getKey(); }
+        }
+        // Title-case the city name
+        String city = nearestKey.substring(0, 1).toUpperCase() + nearestKey.substring(1);
+
+        // Use routeLabel as fallback city if it's cleaner
+        if (routeLabel != null && !routeLabel.isBlank()) {
+            String lbl = routeLabel.split(",")[0].split("—")[0]
+                .replaceAll("(?i) HQ| bypass| outskirts| approaching| flyover| district| bridge| start", "")
+                .trim();
+            if (!lbl.isBlank()) city = lbl;
+        }
+
+        // Deterministic small distance (0.010–0.499 km) and direction
+        Random rng = new Random(seed);
+        double dist   = Math.round((0.010 + rng.nextDouble() * 0.489) * 1000.0) / 1000.0;
+        String[] dirs = {"North","South","East","West","North East","North West","South East","South West"};
+        String direction = dirs[rng.nextInt(dirs.length)];
+        String landmark  = LANDMARK_TYPES[rng.nextInt(LANDMARK_TYPES.length)];
+        String area      = LOCAL_AREAS[rng.nextInt(LOCAL_AREAS.length)];
+
+        return String.format("%s, %.3f Km %s From %s %s", city, dist, direction, landmark, area);
+    }
+
+    private double haversineKm(double lat1, double lng1, double lat2, double lng2) {
+        final double R = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                 * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private Map<String, Object> emptyHistory(String vehicleReg) {

@@ -98,7 +98,7 @@ export default function VTSMap() {
   const [activeTab,     setActiveTab]     = useState('live');
   const [mapLayer,      setMapLayer]      = useState('osm');
   const [autoRefresh,   setAutoRefresh]   = useState(true);
-  const [intervalSec]                     = useState(10);
+  const [intervalSec]                     = useState(5);
   const [loading,       setLoading]       = useState(true);
 
   // History
@@ -441,20 +441,58 @@ export default function VTSMap() {
                       pathOptions={{ color: '#52c41a', weight: 4, opacity: 0.65, dashArray: '8 5' }} />
                   )}
                   <Marker position={[liveCur.lat, liveCur.lng]} icon={makeVehicleIcon('#52c41a', true)}>
-                    <Popup>
-                      <div style={{ minWidth: 210 }}>
-                        <div style={{ background: '#1677ff', color: '#fff', padding: '5px 10px', margin: '-8px -12px 8px', borderRadius: '4px 4px 0 0', fontSize: 12 }}>
-                          <strong>VEHICLE</strong> {liveCur.vehicle}
-                          <Tag color="success" style={{ marginLeft: 8, fontSize: 10 }}>Running</Tag>
+                    <Popup minWidth={300}>
+                      <div style={{ minWidth: 300, fontFamily: 'inherit' }}>
+                        {/* Header: VEHICLE reg (datetime) Running */}
+                        <div style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          margin: '-8px -12px 8px', padding: '7px 12px',
+                          background: '#f5f5f5', borderBottom: '1px solid #e8e8e8', borderRadius: '4px 4px 0 0',
+                        }}>
+                          <div style={{ fontSize: 11, color: '#555' }}>
+                            <span style={{ color: '#888', marginRight: 4 }}>VEHICLE</span>
+                            <strong style={{ color: '#1a1a1a', fontSize: 12 }}>{liveCur.vehicle}</strong>
+                            {liveCur.positionTime && (
+                              <span style={{ color: '#888', marginLeft: 6, fontSize: 10 }}>
+                                ({liveCur.positionTime})
+                              </span>
+                            )}
+                          </div>
+                          <Tag color="success" style={{ margin: 0, fontSize: 10, fontWeight: 700 }}>Running</Tag>
                         </div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1677ff', marginBottom: 4 }}>
-                          {liveCur.speed} km/h
-                          <Text type="secondary" style={{ fontSize: 11, marginLeft: 6 }}>Limit: 100 km/h</Text>
+
+                        {/* Body: Speed (left) | Position + Location (right) */}
+                        <div style={{ display: 'flex', gap: 12 }}>
+                          {/* Speed column */}
+                          <div style={{ minWidth: 90, borderRight: '1px solid #f0f0f0', paddingRight: 12 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#888', marginBottom: 2, letterSpacing: '0.05em' }}>SPEED</div>
+                            <div style={{ fontSize: 26, fontWeight: 900, color: '#52c41a', lineHeight: 1 }}>
+                              {typeof liveCur.speed === 'number' ? liveCur.speed.toFixed(2) : liveCur.speed}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#666', marginTop: 1 }}>km/h</div>
+                            <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>Limit: 100.0 km/h</div>
+                          </div>
+
+                          {/* Position + Location column */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ marginBottom: 6 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#888', letterSpacing: '0.05em', marginBottom: 2 }}>POSITION</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontSize: 11, color: '#333', fontFamily: 'monospace' }}>
+                                  {liveCur.lat}, {liveCur.lng}
+                                </span>
+                                <Button type="text" size="small" style={{ padding: '0 2px', height: 18 }}
+                                  onClick={() => navigator.clipboard?.writeText(`${liveCur.lat}, ${liveCur.lng}`)}>
+                                  <span style={{ fontSize: 12 }}>⧉</span>
+                                </Button>
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#888', letterSpacing: '0.05em', marginBottom: 2 }}>LOCATION</div>
+                              <div style={{ fontSize: 11, color: '#444', lineHeight: 1.5 }}>{liveCur.location}</div>
+                            </div>
+                          </div>
                         </div>
-                        <div style={{ fontSize: 11, color: '#888' }}>📍 {liveCur.location}</div>
-                        <div style={{ fontSize: 11, color: '#888' }}>⛽ {liveCur.fuel}%  ·  Heading: {liveCur.heading}</div>
-                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>{liveCur.lat}, {liveCur.lng}</div>
-                        <Progress percent={liveCur.progress} size="small" strokeColor="#1677ff" style={{ marginTop: 6 }} />
                       </div>
                     </Popup>
                   </Marker>
@@ -469,17 +507,45 @@ export default function VTSMap() {
                   {liveAll.map(v => (
                     <Marker key={v.key} position={[v.lat, v.lng]}
                       icon={makeVehicleIcon(VEH_COLOR[v.status] ?? '#52c41a', false)}>
-                      <Popup>
-                        <div style={{ minWidth: 190 }}>
-                          <div style={{ background: '#1677ff', color: '#fff', padding: '5px 10px', margin: '-8px -12px 8px', borderRadius: '4px 4px 0 0', fontSize: 12 }}>
-                            <strong>{v.vehicle}</strong>
-                            <Tag color="success" style={{ marginLeft: 8, fontSize: 10 }}>Running</Tag>
+                      <Popup minWidth={280}>
+                        <div style={{ minWidth: 280, fontFamily: 'inherit' }}>
+                          {/* Header */}
+                          <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            margin: '-8px -12px 8px', padding: '7px 12px',
+                            background: '#f5f5f5', borderBottom: '1px solid #e8e8e8', borderRadius: '4px 4px 0 0',
+                          }}>
+                            <div>
+                              <span style={{ color: '#888', fontSize: 11, marginRight: 4 }}>VEHICLE</span>
+                              <strong style={{ fontSize: 12 }}>{v.vehicle}</strong>
+                              {v.positionTime && (
+                                <span style={{ color: '#aaa', fontSize: 10, marginLeft: 6 }}>({v.positionTime})</span>
+                              )}
+                            </div>
+                            <Tag color="success" style={{ margin: 0, fontSize: 10, fontWeight: 700 }}>Running</Tag>
                           </div>
-                          <div style={{ fontSize: 11 }}>👤 {v.driver}</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1677ff' }}>{v.speed} km/h</div>
-                          <div style={{ fontSize: 11, color: '#888' }}>📍 {v.location}</div>
-                          <div style={{ fontSize: 11, color: '#888' }}>🗺 {v.route}</div>
-                          <div style={{ fontSize: 11, color: '#888' }}>⛽ {v.fuel}%</div>
+                          {/* Body */}
+                          <div style={{ display: 'flex', gap: 12 }}>
+                            <div style={{ minWidth: 80, borderRight: '1px solid #f0f0f0', paddingRight: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#888', marginBottom: 2 }}>SPEED</div>
+                              <div style={{ fontSize: 22, fontWeight: 900, color: '#52c41a', lineHeight: 1 }}>
+                                {typeof v.speed === 'number' ? v.speed.toFixed(2) : v.speed}
+                              </div>
+                              <div style={{ fontSize: 11, color: '#666' }}>km/h</div>
+                              <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>Limit: 100.0 km/h</div>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 11, color: '#555', marginBottom: 4 }}>
+                                <span style={{ color: '#888' }}>Driver: </span>{v.driver}
+                              </div>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#888', marginBottom: 1 }}>POSITION</div>
+                              <div style={{ fontSize: 11, color: '#333', fontFamily: 'monospace', marginBottom: 4 }}>
+                                {v.lat}, {v.lng}
+                              </div>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#888', marginBottom: 1 }}>LOCATION</div>
+                              <div style={{ fontSize: 11, color: '#444', lineHeight: 1.5 }}>{v.location}</div>
+                            </div>
+                          </div>
                         </div>
                       </Popup>
                     </Marker>
@@ -729,17 +795,46 @@ export default function VTSMap() {
         <Card size="small" style={{ borderRadius: 12, marginBottom: 12, borderColor: '#52c41a' }}
           styles={{ body: { padding: '10px 16px' } }}>
           <Row gutter={16} align="middle" wrap>
-            <Col><Badge status="processing" /><Text strong>{liveCur.vehicle}</Text></Col>
-            <Col><Text type="secondary" style={{ fontSize: 11 }}>Driver</Text><br /><Text style={{ fontSize: 13 }}>{liveCur.driver}</Text></Col>
-            <Col><Text type="secondary" style={{ fontSize: 11 }}>Speed</Text><br /><Text strong style={{ color: '#1677ff', fontSize: 16 }}>{liveCur.speed} km/h</Text></Col>
-            <Col><Text type="secondary" style={{ fontSize: 11 }}>Fuel</Text><br />
+            <Col>
+              <Badge status="processing" />
+              <Text strong style={{ fontSize: 13 }}>{liveCur.vehicle}</Text>
+              {liveCur.positionTime && (
+                <Text type="secondary" style={{ fontSize: 10, marginLeft: 6 }}>({liveCur.positionTime})</Text>
+              )}
+            </Col>
+            <Col>
+              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Driver</Text>
+              <Text style={{ fontSize: 12 }}>{liveCur.driver}</Text>
+            </Col>
+            <Col>
+              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Speed</Text>
+              <Text strong style={{ color: '#52c41a', fontSize: 18, lineHeight: 1 }}>
+                {typeof liveCur.speed === 'number' ? liveCur.speed.toFixed(2) : liveCur.speed}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 10 }}> km/h</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: 10 }}>Limit: 100.0 km/h</Text>
+            </Col>
+            <Col>
+              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Position</Text>
+              <Text style={{ fontSize: 11, fontFamily: 'monospace' }}>
+                {liveCur.lat}, {liveCur.lng}
+              </Text>
+            </Col>
+            <Col>
+              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Fuel</Text>
               <Progress percent={liveCur.fuel} size="small"
                 strokeColor={liveCur.fuel > 50 ? '#52c41a' : liveCur.fuel > 20 ? '#fa8c16' : '#ff4d4f'}
-                style={{ width: 80 }} /></Col>
-            <Col flex="auto"><Text type="secondary" style={{ fontSize: 11 }}>Location</Text><br />
-              <Text style={{ fontSize: 12 }}>{liveCur.location}</Text></Col>
-            <Col><Text type="secondary" style={{ fontSize: 11 }}>Progress</Text><br />
-              <Progress percent={liveCur.progress} size="small" strokeColor="#1677ff" style={{ width: 110 }} /></Col>
+                style={{ width: 80 }} />
+            </Col>
+            <Col flex="auto">
+              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Location</Text>
+              <Text style={{ fontSize: 11 }}>{liveCur.location}</Text>
+            </Col>
+            <Col>
+              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Progress</Text>
+              <Progress percent={liveCur.progress} size="small" strokeColor="#1677ff" style={{ width: 110 }} />
+            </Col>
           </Row>
         </Card>
       )}
