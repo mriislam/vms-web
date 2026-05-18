@@ -120,6 +120,13 @@ input, textarea, .ant-input, .ant-input-textarea textarea {
   font-size: 13px;
 }
 
+/* ── VTS pulsing ring animation (selected vehicle marker) ── */
+@keyframes vtsPulse {
+  0%   { transform: scale(1);   opacity: .6; }
+  70%  { transform: scale(2.4); opacity: 0;  }
+  100% { transform: scale(2.4); opacity: 0;  }
+}
+
 /* ── Map layer switcher (dark overlay on Leaflet map) ── */
 .map-layer-switcher .ant-segmented-item-label {
   color: rgba(255,255,255,0.85) !important;
