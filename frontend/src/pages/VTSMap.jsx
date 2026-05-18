@@ -2,7 +2,7 @@ import {
   EnvironmentOutlined, EyeOutlined, PauseCircleOutlined, PlayCircleOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import {
-  Badge, Button, Card, Col, Descriptions, Drawer, Progress, Row, Select, Slider,
+  Badge, Button, Card, Col, Descriptions, Drawer, Progress, Row, Select, Segmented, Slider,
   Switch, Table, Tag, Typography, message,
 } from 'antd';
 import L from 'leaflet';
@@ -46,6 +46,25 @@ const ICONS = {
 const statusColors   = { moving: 'green',   parked: 'blue',   idle: 'orange' };
 const statusDotColor = { moving: '#52c41a', parked: '#1677ff', idle: '#fa8c16' };
 
+/* ── Map tile layer presets ─────────────────────────────────────── */
+const TILE_LAYERS = {
+  osm: {
+    url:         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    label:       'Street',
+  },
+  google: {
+    url:         'https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}',
+    attribution: '&copy; <a href="https://maps.google.com">Google Maps</a>',
+    label:       'Google',
+  },
+  satellite: {
+    url:         'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    attribution: '&copy; <a href="https://maps.google.com">Google Maps</a>',
+    label:       'Satellite',
+  },
+};
+
 const INITIAL_VEHICLES = [
   { key: 1, vehicle: 'DHK-1234', driver: 'Rahim Uddin',   speed: 62,  location: 'Comilla Highway',  lat: 23.45,  lng: 91.17,  status: 'moving', lastUpdate: '1 min ago',  fuel: 68, temp: 'Normal', heading: 'SE', route: 'Dhaka → CTG',     km: 3820 },
   { key: 2, vehicle: 'DHK-5678', driver: 'Karim Ali',     speed: 0,   location: 'Sylhet Depot',      lat: 24.90,  lng: 91.87,  status: 'parked', lastUpdate: '3 min ago',  fuel: 45, temp: 'Normal', heading: '—',  route: 'Dhaka → Sylhet',  km: 2100 },
@@ -73,6 +92,7 @@ export default function VTSMap() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
   const [intervalSec, setIntervalSec] = useState(10);
+  const [mapLayer, setMapLayer]       = useState('osm');
   const timerRef = useRef(null);
 
   function simulateUpdate() {
@@ -188,14 +208,15 @@ export default function VTSMap() {
         }
       />
 
-      {/* ── OpenStreetMap ───────────────────────────────────── */}
+      {/* ── Map ─────────────────────────────────────────────── */}
       <Card
         size="small"
         style={{ borderRadius: 12, marginBottom: 16 }}
         styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: 12 } }}
       >
-        {/* Live badge overlay */}
         <div style={{ position: 'relative' }}>
+
+          {/* Live Feed badge — top left */}
           <div style={{
             position: 'absolute', top: 12, left: 58, zIndex: 1000,
             background: 'rgba(0,0,0,0.65)', borderRadius: 8, padding: '4px 10px',
@@ -205,6 +226,27 @@ export default function VTSMap() {
             <Text style={{ color: '#52c41a', fontSize: 12 }}>Live Feed</Text>
           </div>
 
+          {/* Map layer switcher — top right */}
+          <div style={{
+            position: 'absolute', top: 12, right: 12, zIndex: 1000,
+          }}>
+            <Segmented
+              size="small"
+              value={mapLayer}
+              onChange={setMapLayer}
+              options={Object.entries(TILE_LAYERS).map(([key, val]) => ({
+                value: key,
+                label: val.label,
+              }))}
+              style={{
+                background: 'rgba(0,0,0,0.60)',
+                borderRadius: 8,
+                padding: 2,
+              }}
+              className="map-layer-switcher"
+            />
+          </div>
+
           <MapContainer
             center={[23.8, 90.4]}
             zoom={7}
@@ -212,8 +254,9 @@ export default function VTSMap() {
             scrollWheelZoom
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              key={mapLayer}
+              attribution={TILE_LAYERS[mapLayer].attribution}
+              url={TILE_LAYERS[mapLayer].url}
             />
 
             <FlyTo vehicles={vehicles} selectedKey={selectedKey} />
