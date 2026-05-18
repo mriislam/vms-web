@@ -446,16 +446,30 @@ export default function VTSMap() {
                 options={[
                   { value: 'today',    label: 'Today' },
                   { value: 'last4h',   label: 'Last 4 Hours' },
+                  { value: 'last6h',   label: 'Last 6 Hours' },
+                  { value: 'last12h',  label: 'Last 12 Hours' },
+                  { value: 'last24h',  label: 'Last 24 Hours' },
                   { value: 'specific', label: 'Specific Date' },
-                  { value: 'range',    label: 'Date Range' },
+                  { value: 'range',    label: 'Custom Range (max 7 days)' },
                 ]}
               />
               {historyPeriod === 'specific' && (
                 <DatePicker value={historyDate} onChange={setHistoryDate} />
               )}
               {historyPeriod === 'range' && (<>
-                <DatePicker value={historyFrom} onChange={setHistoryFrom} placeholder="From" />
-                <DatePicker value={historyTo}   onChange={setHistoryTo}   placeholder="To" />
+                <DatePicker
+                  value={historyFrom} onChange={setHistoryFrom} placeholder="From"
+                  disabledDate={d => d && d.isAfter(dayjs())}
+                />
+                <DatePicker
+                  value={historyTo} onChange={setHistoryTo} placeholder="To"
+                  disabledDate={d => {
+                    if (!d) return false;
+                    if (d.isAfter(dayjs())) return true;
+                    if (historyFrom && d.diff(historyFrom, 'day') > 7) return true;
+                    return false;
+                  }}
+                />
               </>)}
               <Button type="primary" loading={historyLoading} icon={<HistoryOutlined />}
                 onClick={fetchHistory} style={{ borderRadius: 20 }}>

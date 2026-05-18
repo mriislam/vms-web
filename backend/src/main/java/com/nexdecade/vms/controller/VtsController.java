@@ -26,6 +26,9 @@ public class VtsController {
     private final VehicleRepository     vehicleRepo;
     private final GpsDeviceRepository   gpsDeviceRepo;
 
+    /** Live position cycles every 15 minutes — full route visible in one watch session */
+    private static final long CYCLE_SECS = 900L;
+
     /* ── Bangladesh GPS coordinates ─────────────────────────────── */
     private static final Map<String, double[]> CITY_COORDS = new LinkedHashMap<>();
     static {
@@ -49,6 +52,16 @@ public class VtsController {
         CITY_COORDS.put("feni",        new double[]{23.0153, 91.3973});
         CITY_COORDS.put("hq",          new double[]{23.8103, 90.4125});
         CITY_COORDS.put("port",        new double[]{22.3250, 91.8123});
+        CITY_COORDS.put("jessore",     new double[]{23.1664, 89.2127});
+        CITY_COORDS.put("faridpur",    new double[]{23.6070, 89.8429});
+        CITY_COORDS.put("bogura",      new double[]{24.8500, 89.3700});
+        CITY_COORDS.put("rajbari",     new double[]{23.7597, 89.6440});
+        CITY_COORDS.put("keraniganj",  new double[]{23.7149, 90.3783});
+        CITY_COORDS.put("munshiganj",  new double[]{23.5422, 90.5305});
+        CITY_COORDS.put("sirajganj",   new double[]{24.4507, 89.7003});
+        CITY_COORDS.put("habiganj",    new double[]{24.3745, 91.4138});
+        CITY_COORDS.put("coxbazar",    new double[]{21.4272, 92.0058});
+        CITY_COORDS.put("brahmanbaria",new double[]{23.9571, 91.1082});
     }
 
     /* ── Multi-segment route waypoints (lat,lng pairs) ──────────── */
@@ -56,42 +69,81 @@ public class VtsController {
     static {
         // Dhaka → Chittagong via Comilla & Feni
         ROUTE_WAYPOINTS.put("dhaka|chittagong", Arrays.asList(
-            new double[]{23.8103, 90.4125}, // Dhaka
-            new double[]{23.7127, 90.4439}, // Jatrabari
-            new double[]{23.6900, 90.5100}, // Kanchpur
-            new double[]{23.5200, 90.7000}, // Meghna
-            new double[]{23.4607, 91.1809}, // Comilla
-            new double[]{23.0153, 91.3973}, // Feni
-            new double[]{22.5500, 91.7000}, // Mirersarai
-            new double[]{22.3569, 91.7832}  // Chittagong
+            new double[]{23.8103, 90.4125},  // Dhaka
+            new double[]{23.7127, 90.4439},  // Jatrabari
+            new double[]{23.6900, 90.5100},  // Kanchpur
+            new double[]{23.5200, 90.7000},  // Meghna
+            new double[]{23.4607, 91.1809},  // Comilla
+            new double[]{23.0153, 91.3973},  // Feni
+            new double[]{22.5500, 91.7000},  // Mirersarai
+            new double[]{22.3569, 91.7832}   // Chittagong
         ));
         // Dhaka → Sylhet via Brahmanbaria
         ROUTE_WAYPOINTS.put("dhaka|sylhet", Arrays.asList(
-            new double[]{23.8103, 90.4125}, // Dhaka
-            new double[]{23.7416, 90.5932}, // Kanchpur
-            new double[]{23.9203, 90.7152}, // Narsingdi
-            new double[]{24.0526, 90.9794}, // Bhairab
-            new double[]{23.9571, 91.1082}, // Brahmanbaria
-            new double[]{24.3745, 91.4138}, // Habiganj
-            new double[]{24.8949, 91.8687}  // Sylhet
+            new double[]{23.8103, 90.4125},  // Dhaka
+            new double[]{23.7416, 90.5932},  // Kanchpur
+            new double[]{23.9203, 90.7152},  // Narsingdi
+            new double[]{24.0526, 90.9794},  // Bhairab
+            new double[]{23.9571, 91.1082},  // Brahmanbaria
+            new double[]{24.3745, 91.4138},  // Habiganj
+            new double[]{24.8949, 91.8687}   // Sylhet
         ));
         // Dhaka → Rajshahi via Bangabandhu Bridge
         ROUTE_WAYPOINTS.put("dhaka|rajshahi", Arrays.asList(
-            new double[]{23.8103, 90.4125}, // Dhaka
-            new double[]{23.8584, 90.2668}, // Savar
-            new double[]{23.8645, 90.0027}, // Manikganj
-            new double[]{24.1037, 89.7809}, // Bangabandhu Bridge
-            new double[]{24.4507, 89.7003}, // Sirajganj
-            new double[]{24.3745, 88.6042}  // Rajshahi
+            new double[]{23.8103, 90.4125},  // Dhaka
+            new double[]{23.8584, 90.2668},  // Savar
+            new double[]{23.8645, 90.0027},  // Manikganj
+            new double[]{24.1037, 89.7809},  // Bangabandhu Bridge
+            new double[]{24.4507, 89.7003},  // Sirajganj
+            new double[]{24.3745, 88.6042}   // Rajshahi
         ));
         // Dhaka → Mymensingh via Gazipur
         ROUTE_WAYPOINTS.put("dhaka|mymensingh", Arrays.asList(
-            new double[]{23.8103, 90.4125}, // Dhaka
-            new double[]{23.9000, 90.4000}, // Tongi
-            new double[]{23.9999, 90.4203}, // Gazipur
-            new double[]{24.1932, 90.4726}, // Sreepur
-            new double[]{24.4500, 90.4100}, // Mymensingh outskirts
-            new double[]{24.7471, 90.4203}  // Mymensingh
+            new double[]{23.8103, 90.4125},  // Dhaka
+            new double[]{23.9000, 90.4000},  // Tongi
+            new double[]{23.9999, 90.4203},  // Gazipur
+            new double[]{24.1932, 90.4726},  // Sreepur
+            new double[]{24.4500, 90.4100},  // Mymensingh outskirts
+            new double[]{24.7471, 90.4203}   // Mymensingh
+        ));
+        // Dhaka → Khulna via Aricha Ghat → Rajbari → Faridpur → Jessore
+        ROUTE_WAYPOINTS.put("dhaka|khulna", Arrays.asList(
+            new double[]{23.8103, 90.4125},  // Dhaka
+            new double[]{23.8584, 90.2668},  // Savar
+            new double[]{23.8645, 90.0027},  // Manikganj
+            new double[]{23.7819, 90.0234},  // Aricha Ghat
+            new double[]{23.7597, 89.6440},  // Rajbari
+            new double[]{23.6070, 89.8429},  // Faridpur
+            new double[]{23.1664, 89.2127},  // Jessore
+            new double[]{22.8456, 89.5403}   // Khulna
+        ));
+        // Dhaka → Barisal via Padma Bridge (Mawa)
+        ROUTE_WAYPOINTS.put("dhaka|barisal", Arrays.asList(
+            new double[]{23.8103, 90.4125},  // Dhaka
+            new double[]{23.7149, 90.3783},  // Keraniganj
+            new double[]{23.5422, 90.5305},  // Munshiganj
+            new double[]{23.4197, 90.2608},  // Padma Bridge (Mawa)
+            new double[]{23.0218, 89.8552},  // Bhanga
+            new double[]{22.7800, 90.3600},  // Barisal outskirts
+            new double[]{22.7010, 90.3535}   // Barisal
+        ));
+        // Dhaka → Rangpur via Bangabandhu Bridge → Bogura
+        ROUTE_WAYPOINTS.put("dhaka|rangpur", Arrays.asList(
+            new double[]{23.8103, 90.4125},  // Dhaka
+            new double[]{23.8584, 90.2668},  // Savar
+            new double[]{23.8645, 90.0027},  // Manikganj
+            new double[]{24.1037, 89.7809},  // Bangabandhu Bridge
+            new double[]{24.4507, 89.7003},  // Sirajganj
+            new double[]{24.8500, 89.3700},  // Bogura
+            new double[]{25.7439, 89.2752}   // Rangpur
+        ));
+        // Dhaka → Comilla via Kanchpur
+        ROUTE_WAYPOINTS.put("dhaka|comilla", Arrays.asList(
+            new double[]{23.8103, 90.4125},  // Dhaka
+            new double[]{23.7127, 90.4439},  // Jatrabari
+            new double[]{23.6900, 90.5100},  // Kanchpur
+            new double[]{23.5200, 90.7000},  // Meghna
+            new double[]{23.4607, 91.1809}   // Comilla
         ));
     }
 
@@ -146,6 +198,46 @@ public class VtsController {
             "Mymensingh approaching",
             "Mymensingh — destination"
         ));
+        ROUTE_LABELS.put("dhaka|khulna", Arrays.asList(
+            "Dhaka HQ — start",
+            "Savar, Dhaka",
+            "Manikganj district",
+            "Aricha Ghat Ferry terminal",
+            "Rajbari district",
+            "Faridpur district",
+            "Faridpur-Jessore highway",
+            "Jessore city",
+            "Jessore-Khulna highway",
+            "Approaching Khulna",
+            "Khulna — destination"
+        ));
+        ROUTE_LABELS.put("dhaka|barisal", Arrays.asList(
+            "Dhaka HQ — start",
+            "Keraniganj, Dhaka outskirts",
+            "Munshiganj district",
+            "Padma Bridge (Mawa) — crossing",
+            "Bhanga, Faridpur",
+            "Barisal district approaching",
+            "Barisal — destination"
+        ));
+        ROUTE_LABELS.put("dhaka|rangpur", Arrays.asList(
+            "Dhaka HQ — start",
+            "Savar, Dhaka",
+            "Manikganj district",
+            "Bangabandhu Bridge — crossing",
+            "Sirajganj bypass",
+            "Bogura city",
+            "Bogura-Rangpur highway",
+            "Rangpur outskirts",
+            "Rangpur — destination"
+        ));
+        ROUTE_LABELS.put("dhaka|comilla", Arrays.asList(
+            "Dhaka HQ — start",
+            "Jatrabari flyover, Dhaka",
+            "Kanchpur Bridge",
+            "Meghna Highway",
+            "Comilla — destination"
+        ));
     }
 
     /* ════════════════════════════════════════════════════════════
@@ -173,22 +265,17 @@ public class VtsController {
         List<GpsDevice> devices = gpsDeviceRepo.findByStatus("active");
         long nowSeconds = System.currentTimeMillis() / 1000;
 
-        // Build a quick lookup of in_progress dispatches
         Map<String, Dispatch> activeTrips = dispatchRepo.findByStatus("in_progress")
             .stream().collect(Collectors.toMap(Dispatch::getVehicleReg, d -> d, (a, b) -> a));
 
         List<Map<String, Object>> result = devices.stream().map(dev -> {
-            Vehicle veh = vehicleRepo.findByRegNo(dev.getVehicleReg()).orElse(null);
+            Vehicle veh  = vehicleRepo.findByRegNo(dev.getVehicleReg()).orElse(null);
             Dispatch trip = activeTrips.get(dev.getVehicleReg());
 
             double speed = 0;
             String engineStatus = dev.getEngineStatus() != null ? dev.getEngineStatus() : "off";
 
             if (trip != null) {
-                // compute live speed from cycling simulation
-                int distKm = trip.getDistance() != null ? trip.getDistance() : 150;
-                long cycleSecs = Math.max(1800L, (long)(distKm / 55.0 * 3600));
-                long phase = (Math.abs((long) trip.getDispatchNo().hashCode()) * 137L) % cycleSecs;
                 Random rng = new Random(nowSeconds / 10 + trip.getId());
                 speed = 50 + rng.nextInt(36);
                 engineStatus = "on";
@@ -238,7 +325,10 @@ public class VtsController {
     }
 
     /* ════════════════════════════════════════════════════════════
-       4.  GET /api/vts/history  — simulated track history
+       4.  GET /api/vts/history  — simulated GPS track history
+           period: today | last4h | last6h | last12h | last24h |
+                   specific (date=YYYY-MM-DD) |
+                   range (from=YYYY-MM-DD&to=YYYY-MM-DD, max 7 days)
     ════════════════════════════════════════════════════════════ */
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getHistory(
@@ -248,7 +338,6 @@ public class VtsController {
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to) {
 
-        // Find most recent dispatch (in_progress or completed)
         List<Dispatch> dispatches = dispatchRepo.findByVehicleReg(vehicleReg);
         Dispatch dispatch = dispatches.stream()
             .filter(d -> "in_progress".equals(d.getStatus()) || "completed".equals(d.getStatus()))
@@ -263,14 +352,23 @@ public class VtsController {
         LocalDateTime rangeStart, rangeEnd;
         switch (period) {
             case "last4h":
-                rangeStart = now.minusHours(4); rangeEnd = now; break;
+                rangeStart = now.minusHours(4);  rangeEnd = now; break;
+            case "last6h":
+                rangeStart = now.minusHours(6);  rangeEnd = now; break;
+            case "last12h":
+                rangeStart = now.minusHours(12); rangeEnd = now; break;
+            case "last24h":
+                rangeStart = now.minusHours(24); rangeEnd = now; break;
             case "specific":
                 LocalDate sd = date != null ? LocalDate.parse(date) : LocalDate.now();
                 rangeStart = sd.atStartOfDay(); rangeEnd = sd.plusDays(1).atStartOfDay(); break;
-            case "range":
-                rangeStart = from != null ? LocalDate.parse(from).atStartOfDay() : now.minusDays(7);
-                rangeEnd   = to   != null ? LocalDate.parse(to).plusDays(1).atStartOfDay() : now;
-                break;
+            case "range": {
+                LocalDateTime rs = from != null ? LocalDate.parse(from).atStartOfDay() : now.minusDays(7);
+                LocalDateTime re = to   != null ? LocalDate.parse(to).plusDays(1).atStartOfDay() : now;
+                // cap custom range to 7 days
+                if (ChronoUnit.DAYS.between(rs, re) > 7) re = rs.plusDays(7);
+                rangeStart = rs; rangeEnd = re; break;
+            }
             default: // today
                 rangeStart = LocalDate.now().atStartOfDay(); rangeEnd = now;
         }
@@ -282,7 +380,6 @@ public class VtsController {
             ? dispatch.getEndTime()
             : tripStart.plusMinutes((long)(distKm / 55.0 * 60));
 
-        // Effective overlap
         LocalDateTime effStart = tripStart.isAfter(rangeStart) ? tripStart : rangeStart;
         LocalDateTime effEnd   = tripEnd.isBefore(rangeEnd)    ? tripEnd   : rangeEnd;
 
@@ -296,9 +393,8 @@ public class VtsController {
         long traveledSecs  = ChronoUnit.SECONDS.between(tripStart, effEnd);
         double fraction    = Math.min(1.0, Math.max(0, (double) traveledSecs / tripTotalSecs));
 
-        // GPS device info
         GpsDevice dev = gpsDeviceRepo.findByVehicleReg(vehicleReg).orElse(null);
-        Vehicle veh   = vehicleRepo.findByRegNo(vehicleReg).orElse(null);
+        Vehicle   veh = vehicleRepo.findByRegNo(vehicleReg).orElse(null);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("vehicleReg",  vehicleReg);
@@ -323,27 +419,24 @@ public class VtsController {
     private Map<String, Object> buildLiveEntry(Dispatch d, Map<String, Vehicle> vehicleMap, long nowSeconds) {
         double[] originCoords = resolveCoords(d.getOrigin());
         double[] destCoords   = resolveCoords(d.getDestination());
+        List<double[]> waypoints = getRouteWaypoints(d.getOrigin(), d.getDestination());
 
-        int distKm = d.getDistance() != null && d.getDistance() > 0 ? d.getDistance() : 150;
-        long cycleSecs = Math.max(1800L, (long)(distKm / 55.0 * 3600));
-        long phase     = (Math.abs((long) d.getDispatchNo().hashCode()) * 137L) % cycleSecs;
-        double fraction = 0.02 + ((nowSeconds + phase) % cycleSecs) / (double) cycleSecs * 0.95;
+        long phase    = (Math.abs((long) d.getDispatchNo().hashCode()) * 137L) % CYCLE_SECS;
+        double fraction = 0.02 + ((nowSeconds + phase) % CYCLE_SECS) / (double) CYCLE_SECS * 0.95;
+
+        LocalDateTime tNow = LocalDateTime.now();
+        double[] pos = interpolateAlongWaypoints(waypoints, fraction, tNow);
 
         Random rng = new Random(nowSeconds / 10 + d.getId());
-        double jLat = (rng.nextDouble() - 0.5) * 0.003;
-        double jLng = (rng.nextDouble() - 0.5) * 0.003;
-        double lat  = originCoords[0] + (destCoords[0] - originCoords[0]) * fraction + jLat;
-        double lng  = originCoords[1] + (destCoords[1] - originCoords[1]) * fraction + jLng;
+        int speed  = (int)(simulateSpeed(fraction, tNow));
+        if (speed < 5) speed = 0;
 
-        int speed = 50 + rng.nextInt(36);
-
-        // Fuel depletes along journey
         double fuel = Math.round((85.0 - fraction * 65.0) * 10) / 10.0;
 
-        Vehicle veh = vehicleMap.get(d.getVehicleReg());
-
-        // GPS device
+        Vehicle  veh = vehicleMap.get(d.getVehicleReg());
         GpsDevice dev = gpsDeviceRepo.findByVehicleReg(d.getVehicleReg()).orElse(null);
+
+        int distKm = d.getDistance() != null && d.getDistance() > 0 ? d.getDistance() : 150;
 
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("key",          d.getId());
@@ -358,11 +451,11 @@ public class VtsController {
         m.put("distance",     distKm);
         m.put("elapsedKm",    (int)(distKm * fraction));
         m.put("speed",        (double) speed);
-        m.put("lat",          Math.round(lat * 10000.0) / 10000.0);
-        m.put("lng",          Math.round(lng * 10000.0) / 10000.0);
+        m.put("lat",          Math.round(pos[0] * 10000.0) / 10000.0);
+        m.put("lng",          Math.round(pos[1] * 10000.0) / 10000.0);
         m.put("fuel",         fuel);
         m.put("heading",      calcHeading(originCoords, destCoords));
-        m.put("status",       "moving");
+        m.put("status",       speed > 0 ? "moving" : "idle");
         m.put("location",     interpolateLocationName(d.getOrigin(), d.getDestination(), fraction));
         m.put("purpose",      d.getPurpose());
         m.put("approvedBy",   d.getApprovedBy());
@@ -384,7 +477,6 @@ public class VtsController {
 
         List<double[]> waypoints = getRouteWaypoints(dispatch.getOrigin(), dispatch.getDestination());
         List<String>   labels    = getRouteLabels(dispatch.getOrigin(), dispatch.getDestination());
-        int distKm = dispatch.getDistance() != null ? dispatch.getDistance() : 150;
         long tripTotalSecs = Math.max(1, ChronoUnit.SECONDS.between(tripStart, tripEnd));
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm:ss a");
@@ -418,56 +510,76 @@ public class VtsController {
 
     private double[] interpolateAlongWaypoints(List<double[]> waypoints, double fraction, LocalDateTime t) {
         if (waypoints.size() < 2) return waypoints.get(0).clone();
-        int segs = waypoints.size() - 1;
+        int segs   = waypoints.size() - 1;
         double scaled = fraction * segs;
-        int seg = Math.min((int) scaled, segs - 1);
+        int seg    = Math.min((int) scaled, segs - 1);
         double segF = scaled - seg;
         double[] from = waypoints.get(seg);
-        double[] to   = waypoints.get(seg + 1);
+        double[] toWp = waypoints.get(seg + 1);
         Random rng = new Random(t.toEpochSecond(ZoneOffset.UTC));
         return new double[]{
-            from[0] + (to[0] - from[0]) * segF + (rng.nextDouble() - 0.5) * 0.0015,
-            from[1] + (to[1] - from[1]) * segF + (rng.nextDouble() - 0.5) * 0.0015
+            from[0] + (toWp[0] - from[0]) * segF + (rng.nextDouble() - 0.5) * 0.0015,
+            from[1] + (toWp[1] - from[1]) * segF + (rng.nextDouble() - 0.5) * 0.0015
         };
     }
 
     private double simulateSpeed(double fraction, LocalDateTime t) {
         double base;
-        if (fraction < 0.08)       base = 15 + fraction / 0.08 * 55;
-        else if (fraction > 0.92)  base = 70 - (fraction - 0.92) / 0.08 * 55;
-        else                       base = 65;
+        if (fraction < 0.08)      base = 15 + fraction / 0.08 * 55;
+        else if (fraction > 0.92) base = 70 - (fraction - 0.92) / 0.08 * 55;
+        else                      base = 65;
         Random rng = new Random(t.toEpochSecond(ZoneOffset.UTC));
         base += (rng.nextDouble() - 0.5) * 25;
-        // Occasional stop every ~15 min for ~1 min (traffic/fuel)
+        // Occasional 1-min stop every ~15 min (traffic/fuel)
         if (t.toEpochSecond(ZoneOffset.UTC) % 900 < 60 && fraction > 0.1 && fraction < 0.9) return 0;
         return Math.max(0, Math.min(110, base));
     }
 
+    /**
+     * Looks up the route key.  Returns "~original|key" (tilde prefix) when the
+     * requested direction is the reverse of a stored route.
+     */
+    private String routeKey(String origin, String dest) {
+        String o = cleanKey(origin);
+        String d = cleanKey(dest);
+        // Try direct match
+        for (String key : ROUTE_WAYPOINTS.keySet()) {
+            String[] p = key.split("\\|");
+            if (matches(o, p[0]) && matches(d, p[1])) return key;
+        }
+        // Try reverse match
+        for (String key : ROUTE_WAYPOINTS.keySet()) {
+            String[] p = key.split("\\|");
+            if (matches(d, p[0]) && matches(o, p[1])) return "~" + key;
+        }
+        return o + "|" + d;
+    }
+
+    private static String cleanKey(String loc) {
+        return loc == null ? "" : loc.toLowerCase().replaceAll("[^a-z]", "").replace("hq","").trim();
+    }
+    private static boolean matches(String q, String key) {
+        return q.contains(key) || key.contains(q);
+    }
+
     private List<double[]> getRouteWaypoints(String origin, String dest) {
         String key = routeKey(origin, dest);
+        if (key.startsWith("~")) {
+            List<double[]> pts = ROUTE_WAYPOINTS.get(key.substring(1));
+            if (pts != null) { List<double[]> rev = new ArrayList<>(pts); Collections.reverse(rev); return rev; }
+        }
         if (ROUTE_WAYPOINTS.containsKey(key)) return ROUTE_WAYPOINTS.get(key);
-        // Fallback: direct line with 3 points
         double[] o = resolveCoords(origin), d = resolveCoords(dest);
-        return Arrays.asList(o,
-            new double[]{(o[0]+d[0])/2, (o[1]+d[1])/2},
-            d);
+        return Arrays.asList(o, new double[]{(o[0]+d[0])/2, (o[1]+d[1])/2}, d);
     }
 
     private List<String> getRouteLabels(String origin, String dest) {
-        return ROUTE_LABELS.getOrDefault(routeKey(origin, dest), List.of("En route"));
-    }
-
-    private String routeKey(String origin, String dest) {
-        String o = origin.toLowerCase().replaceAll("[^a-z]", "").replace("hq","").trim();
-        String d = dest.toLowerCase().replaceAll("[^a-z]", "").replace("hq","").trim();
-        // Try direct and reverse
-        for (Map.Entry<String, List<double[]>> e : ROUTE_WAYPOINTS.entrySet()) {
-            String[] parts = e.getKey().split("\\|");
-            if (o.contains(parts[0]) || parts[0].contains(o)) {
-                if (d.contains(parts[1]) || parts[1].contains(d)) return e.getKey();
-            }
+        String key = routeKey(origin, dest);
+        if (key.startsWith("~")) {
+            List<String> lbs = ROUTE_LABELS.get(key.substring(1));
+            if (lbs != null) { List<String> rev = new ArrayList<>(lbs); Collections.reverse(rev); return rev; }
         }
-        return o + "|" + d;
+        return ROUTE_LABELS.getOrDefault(key, List.of("En route"));
     }
 
     private String resolveLabel(List<String> labels, double fraction) {
