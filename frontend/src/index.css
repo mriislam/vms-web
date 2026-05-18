@@ -120,6 +120,31 @@ input, textarea, .ant-input, .ant-input-textarea textarea {
   font-size: 13px;
 }
 
+/* ── Responsive: compact cards and reduced spacing on small screens ── */
+@media (max-width: 767px) {
+  /* Ant Card */
+  .ant-card-body    { padding: 10px 12px !important; }
+  .ant-card-head    { padding: 0 12px !important; min-height: 38px !important; line-height: 38px !important; }
+
+  /* Tables */
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td { padding: 6px 8px !important; font-size: 12px !important; }
+
+  /* Forms */
+  .ant-form-item { margin-bottom: 10px !important; }
+
+  /* Descriptions */
+  .ant-descriptions-item-label,
+  .ant-descriptions-item-content { font-size: 12px !important; padding: 6px 8px !important; }
+
+  /* Modals */
+  .ant-modal { margin: 8px !important; max-width: calc(100vw - 16px) !important; }
+
+  /* Page content inner gap */
+  .ant-row { margin-left: -6px !important; margin-right: -6px !important; }
+  .ant-col  { padding-left: 6px !important; padding-right: 6px !important; }
+}
+
 /* ── VTS pulsing ring animation (selected vehicle marker) ── */
 @keyframes vtsPulse {
   0%   { transform: scale(1);   opacity: .6; }

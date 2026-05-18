@@ -163,12 +163,17 @@ function buildMenuItems(groups, activeKey, collapsed) {
   });
 }
 
-export default function AppSidebar() {
+const SIDEBAR_W = 220;
+const SIDEBAR_COLLAPSED_W = 60;
+
+export default function AppSidebar({ isMobile = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
   const isDark = useUIStore((s) => s.isDark);
+  // On mobile, sidebar is always icon-only
+  const effectiveCollapsed = collapsed || isMobile;
 
   const currentGroup = getGroupKey(location.pathname);
   const [openKeys, setOpenKeys] = useState(currentGroup ? [currentGroup] : []);
@@ -183,13 +188,13 @@ export default function AppSidebar() {
     setOpenKeys(latest ? [latest] : []);
   }
 
-  const menuItems = buildMenuItems(MENU_GROUPS, location.pathname, collapsed);
+  const menuItems = buildMenuItems(MENU_GROUPS, location.pathname, effectiveCollapsed);
 
   return (
     <Sider
-      width={240}
-      collapsedWidth={68}
-      collapsed={collapsed}
+      width={SIDEBAR_W}
+      collapsedWidth={SIDEBAR_COLLAPSED_W}
+      collapsed={effectiveCollapsed}
       trigger={null}
       theme={isDark ? 'dark' : 'light'}
       style={{
@@ -207,46 +212,42 @@ export default function AppSidebar() {
     >
       {/* ── Top: Logo + Collapse Button ── */}
       <div style={{
-        height: 64,
+        height: 48,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: collapsed ? 'center' : 'space-between',
-        padding: collapsed ? '0 10px' : '0 16px 0 18px',
+        justifyContent: effectiveCollapsed ? 'center' : 'space-between',
+        padding: effectiveCollapsed ? '0 8px' : '0 12px 0 14px',
         borderBottom: `1px solid ${borderClr}`,
         flexShrink: 0,
-        gap: 8,
+        gap: 6,
       }}>
         {/* Logo mark */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flex: 1, minWidth: 0,
-        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden', flex: 1, minWidth: 0 }}>
           <div style={{
-            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
             background: 'linear-gradient(135deg, #1677ff 0%, #722ed1 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 14px rgba(22,119,255,0.4)',
+            boxShadow: '0 3px 10px rgba(22,119,255,0.4)',
           }}>
-            <CarOutlined style={{ fontSize: 18, color: '#fff' }} />
+            <CarOutlined style={{ fontSize: 15, color: '#fff' }} />
           </div>
-          {!collapsed && (
+          {!effectiveCollapsed && (
             <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: textClr, lineHeight: 1.2, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>VMS</div>
-              <div style={{ fontSize: 10, color: subClr, lineHeight: 1, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Fleet Manager</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: textClr, lineHeight: 1.2, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>VMS</div>
+              <div style={{ fontSize: 9, color: subClr, lineHeight: 1, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Fleet Manager</div>
             </div>
           )}
         </div>
 
-        {/* Collapse toggle at top */}
-        <Tooltip title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} placement="right">
-          <div
-            onClick={() => setSidebarCollapsed(!collapsed)}
+        {/* Collapse toggle */}
+        <Tooltip title={collapsed ? 'Expand' : 'Collapse'} placement="right">
+          <div onClick={() => setSidebarCollapsed(!collapsed)}
             style={{
-              width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+              width: 24, height: 24, borderRadius: 7, flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer',
               background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-              color: subClr,
-              fontSize: 13,
+              color: subClr, fontSize: 11,
               transition: 'all 0.2s',
               border: `1px solid ${borderClr}`,
             }}
@@ -261,7 +262,7 @@ export default function AppSidebar() {
               e.currentTarget.style.borderColor = borderClr;
             }}
           >
-            {collapsed ? <RightOutlined style={{ fontSize: 11 }} /> : <LeftOutlined style={{ fontSize: 11 }} />}
+            {collapsed ? <RightOutlined style={{ fontSize: 10 }} /> : <LeftOutlined style={{ fontSize: 10 }} />}
           </div>
         </Tooltip>
       </div>
@@ -272,7 +273,7 @@ export default function AppSidebar() {
           mode="inline"
           theme={isDark ? 'dark' : 'light'}
           selectedKeys={[location.pathname]}
-          openKeys={collapsed ? [] : openKeys}
+          openKeys={effectiveCollapsed ? [] : openKeys}
           onOpenChange={onOpenChange}
           items={menuItems}
           onClick={({ key }) => {
@@ -289,7 +290,7 @@ export default function AppSidebar() {
       </div>
 
       {/* ── Bottom copyright ── */}
-      {!collapsed && (
+      {!effectiveCollapsed && (
         <div style={{
           padding: '10px 18px',
           borderTop: `1px solid ${borderClr}`,

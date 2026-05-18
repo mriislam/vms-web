@@ -426,7 +426,7 @@ export default function VTSMap() {
               )}
 
               <MapContainer center={[23.8, 90.4]} zoom={7}
-                style={{ height: 560, width: '100%' }} scrollWheelZoom>
+                style={{ height: 'clamp(320px, calc(100vh - 260px), 600px)', width: '100%' }} scrollWheelZoom>
                 <TileLayer key={mapLayer} url={TILES[mapLayer].url} attribution={TILES[mapLayer].attribution} />
                 <ResizeHandler trigger={splitLayout} />
 
@@ -593,8 +593,8 @@ export default function VTSMap() {
             {/* ── History right panel ───────────────────────── */}
             {splitLayout && (
               <div style={{
-                flex: '0 0 340px', display: 'flex', flexDirection: 'column',
-                height: 560, background: '#fff', borderRadius: 12,
+                flex: '0 0 320px', display: 'flex', flexDirection: 'column',
+                height: 'clamp(320px, calc(100vh - 260px), 600px)', background: '#fff', borderRadius: 12,
                 border: '1px solid #e8e8e8', overflow: 'hidden',
                 boxShadow: '0 2px 10px rgba(0,0,0,.1)',
               }}>
