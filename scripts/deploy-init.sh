@@ -75,7 +75,8 @@ if [[ -x "${MAVEN_HOME}/bin/mvn" ]]; then
     ok "Maven already at ${MAVEN_HOME}"
 else
     info "Downloading Maven ${MAVEN_VERSION}..."
-    MAVEN_URL="https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+    # Try main mirror first; fall back to archive for older versions
+    MAVEN_URL="https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
     curl -fsSL "$MAVEN_URL" -o /tmp/maven.tar.gz
     tar -xzf /tmp/maven.tar.gz -C /opt/
     rm /tmp/maven.tar.gz
