@@ -17,6 +17,7 @@ import {
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, Button, Card, Col, Progress, Row, Spin, Table, Tag, Timeline, Tooltip, Typography } from 'antd';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { noticeService } from '../services/noticeService';
 import {
@@ -26,6 +27,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -47,16 +49,25 @@ const ALERT_ICONS = {
   ok:          <CheckCircleOutlined />,
 };
 
+const ALERT_ROUTES = {
+  maintenance: '/maintenance',
+  accident:    '/accidents',
+  inventory:   '/inventory',
+  dispatch:    '/vehicle-requisition',
+  ok:          '/dashboard',
+};
+
 // ── stat card ─────────────────────────────────────────────────────────────────
-function StatCard({ icon, label, value, sub, color, trend }) {
+function StatCard({ icon, label, value, sub, color, trend, onClick }) {
   return (
     <Card
       hoverable
+      onClick={onClick}
       style={{
         borderRadius: 16,
         border: `1.5px solid ${color}`,
         overflow: 'hidden',
-        cursor: 'default',
+        cursor: onClick ? 'pointer' : 'default',
         background: `${color}12`,
         boxShadow: `0 2px 12px ${color}22`,
         transition: 'transform 0.2s, box-shadow 0.2s',
@@ -112,6 +123,34 @@ const ChartTooltip = ({ active, payload, label }) => {
   );
 };
 
+// ── custom legend ─────────────────────────────────────────────────────────────
+function ChartLegend({ hiddenBars, onToggle }) {
+  const items = [
+    { key: 'fuel',        color: '#4096ff', label: 'Fuel' },
+    { key: 'maintenance', color: '#fa8c16', label: 'Maintenance' },
+    { key: 'other',       color: '#9254de', label: 'Expenses' },
+  ];
+  return (
+    <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
+      {items.map((i) => (
+        <Tooltip key={i.key} title={hiddenBars.has(i.key) ? 'Click to show' : 'Click to hide'}>
+          <span
+            onClick={() => onToggle(i.key)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              cursor: 'pointer', opacity: hiddenBars.has(i.key) ? 0.35 : 1,
+              transition: 'opacity 0.2s',
+            }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: i.color, display: 'inline-block' }} />
+            <Text type="secondary" style={{ fontSize: 12 }}>{i.label}</Text>
+          </span>
+        </Tooltip>
+      ))}
+    </div>
+  );
+}
+
 // ── status styles ─────────────────────────────────────────────────────────────
 const statusStyle = {
   in_progress: { color: '#1677ff', bg: 'rgba(22,119,255,0.12)', label: 'In Progress' },
@@ -120,28 +159,20 @@ const statusStyle = {
   approved:    { color: '#9254de', bg: 'rgba(146,84,222,0.12)', label: 'Approved' },
 };
 
-const dispatchCols = [
-  { title: 'Vehicle',     dataIndex: 'vehicle',     key: 'vehicle',     render: (v) => <Text strong style={{ color: '#4096ff' }}>{v}</Text> },
-  { title: 'Driver',      dataIndex: 'driver',      key: 'driver' },
-  { title: 'Destination', dataIndex: 'destination', key: 'destination' },
-  {
-    title: 'Status', dataIndex: 'status', key: 'status',
-    render: (s) => {
-      const st = statusStyle[s] ?? { color: '#8c8c8c', bg: 'rgba(0,0,0,0.1)', label: s };
-      return (
-        <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-          {st.label}
-        </span>
-      );
-    },
-  },
-];
-
 // ── main ──────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const today = new Date().toLocaleDateString('en-BD', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [hiddenBars, setHiddenBars] = useState(new Set());
+
+  function toggleBar(key) {
+    setHiddenBars((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
 
   const { data: raw, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -170,6 +201,23 @@ export default function Dashboard() {
   const alerts         = s.alerts         ?? [];
   const totalFleet     = fleetStatus.reduce((a, f) => a + (f.value ?? 0), 0);
 
+  const dispatchCols = [
+    { title: 'Vehicle',     dataIndex: 'vehicle',     key: 'vehicle',     render: (v) => <Text strong style={{ color: '#4096ff' }}>{v}</Text> },
+    { title: 'Driver',      dataIndex: 'driver',      key: 'driver' },
+    { title: 'Destination', dataIndex: 'destination', key: 'destination' },
+    {
+      title: 'Status', dataIndex: 'status', key: 'status',
+      render: (s) => {
+        const st = statusStyle[s] ?? { color: '#8c8c8c', bg: 'rgba(0,0,0,0.1)', label: s };
+        return (
+          <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+            {st.label}
+          </span>
+        );
+      },
+    },
+  ];
+
   return (
     <div style={{ padding: '0 0 32px' }}>
       {/* Header */}
@@ -188,15 +236,15 @@ export default function Dashboard() {
       <Spin spinning={statsLoading}>
         <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
           {[
-            { icon: <CarOutlined />,         label: 'Total Vehicles',      value: s.totalVehicles ?? '—',       sub: `${s.activeVehicles ?? 0} active`,           trend: 'up',   color: '#1677ff' },
-            { icon: <IdcardOutlined />,       label: 'Active Drivers',      value: s.activeDrivers ?? '—',       sub: `${s.totalDrivers ?? 0} total`,              trend: null,   color: '#52c41a' },
-            { icon: <ThunderboltOutlined />,  label: 'Requisitions Pending',value: s.dispatchPending ?? '—',     sub: `${s.dispatchInProgress ?? 0} in progress`,  trend: null,   color: '#9254de' },
-            { icon: <ToolOutlined />,         label: 'Maintenance Pending', value: s.maintenancePending ?? '—',  sub: 'jobs awaiting workshop',                    trend: 'down', color: '#ff4d4f' },
-            { icon: <AlertOutlined />,        label: 'Open Accidents',      value: s.openAccidents ?? '—',       sub: 'cases require attention',                   trend: 'down', color: '#fa8c16' },
-            { icon: <ExperimentOutlined />,   label: 'Low Stock Items',     value: s.lowStockItems ?? '—',       sub: 'inventory alerts',                          trend: 'down', color: '#13c2c2' },
+            { icon: <CarOutlined />,        label: 'Total Vehicles',       value: s.totalVehicles ?? '—',      sub: `${s.activeVehicles ?? 0} active`,          trend: 'up',   color: '#1677ff', to: '/vehicles' },
+            { icon: <IdcardOutlined />,      label: 'Active Drivers',       value: s.activeDrivers ?? '—',      sub: `${s.totalDrivers ?? 0} total`,             trend: null,   color: '#52c41a', to: '/drivers' },
+            { icon: <ThunderboltOutlined />, label: 'Requisitions Pending', value: s.dispatchPending ?? '—',    sub: `${s.dispatchInProgress ?? 0} in progress`, trend: null,   color: '#9254de', to: '/vehicle-requisition' },
+            { icon: <ToolOutlined />,        label: 'Maintenance Pending',  value: s.maintenancePending ?? '—', sub: 'jobs awaiting workshop',                   trend: 'down', color: '#ff4d4f', to: '/maintenance' },
+            { icon: <AlertOutlined />,       label: 'Open Accidents',       value: s.openAccidents ?? '—',      sub: 'cases require attention',                  trend: 'down', color: '#fa8c16', to: '/accidents' },
+            { icon: <ExperimentOutlined />,  label: 'Low Stock Items',      value: s.lowStockItems ?? '—',      sub: 'inventory alerts',                         trend: 'down', color: '#13c2c2', to: '/inventory' },
           ].map((st) => (
             <Col key={st.label} xs={24} sm={12} xl={4} style={{ display: 'flex' }}>
-              <StatCard {...st} />
+              <StatCard {...st} onClick={() => navigate(st.to)} />
             </Col>
           ))}
         </Row>
@@ -210,16 +258,9 @@ export default function Dashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingLeft: 8 }}>
               <div>
                 <Title level={5} style={{ margin: 0 }}>Monthly Cost Breakdown</Title>
-                <Text type="secondary" style={{ fontSize: 12 }}>Last 6 months (BDT) — live from DB</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>Last 6 months (BDT) — click a bar or legend to filter</Text>
               </div>
-              <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
-                {[{ c: '#4096ff', l: 'Fuel' }, { c: '#fa8c16', l: 'Maintenance' }, { c: '#9254de', l: 'Expenses' }].map((i) => (
-                  <span key={i.l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 2, background: i.c, display: 'inline-block' }} />
-                    <Text type="secondary" style={{ fontSize: 12 }}>{i.l}</Text>
-                  </span>
-                ))}
-              </div>
+              <ChartLegend hiddenBars={hiddenBars} onToggle={toggleBar} />
             </div>
             <Spin spinning={statsLoading}>
               <ResponsiveContainer width="100%" height={210}>
@@ -228,9 +269,9 @@ export default function Dashboard() {
                   <XAxis dataKey="month" tick={{ fill: '#8c9ab0', fontSize: 12 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: '#8c9ab0', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
                   <RechartsTooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                  <Bar dataKey="fuel"        fill="#4096ff" radius={[4,4,0,0]} name="Fuel" />
-                  <Bar dataKey="maintenance" fill="#fa8c16" radius={[4,4,0,0]} name="Maintenance" />
-                  <Bar dataKey="other"       fill="#9254de" radius={[4,4,0,0]} name="Expenses" />
+                  <Bar dataKey="fuel"        fill="#4096ff" radius={[4,4,0,0]} name="Fuel"        hide={hiddenBars.has('fuel')}        cursor="pointer" onClick={() => navigate('/fuel')} />
+                  <Bar dataKey="maintenance" fill="#fa8c16" radius={[4,4,0,0]} name="Maintenance" hide={hiddenBars.has('maintenance')} cursor="pointer" onClick={() => navigate('/maintenance')} />
+                  <Bar dataKey="other"       fill="#9254de" radius={[4,4,0,0]} name="Expenses"    hide={hiddenBars.has('other')}       cursor="pointer" onClick={() => navigate('/expenses')} />
                 </BarChart>
               </ResponsiveContainer>
             </Spin>
@@ -243,20 +284,47 @@ export default function Dashboard() {
             {/* Donut */}
             <Col span={24}>
               <Card style={{ borderRadius: 16 }} styles={{ body: { padding: 20 } }}>
-                <Title level={5} style={{ margin: '0 0 12px' }}>Fleet Status</Title>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <Title level={5} style={{ margin: 0 }}>Fleet Status</Title>
+                  <Text type="secondary" style={{ fontSize: 11 }}>Click a slice to view vehicles</Text>
+                </div>
                 <Spin spinning={statsLoading}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <ResponsiveContainer width={120} height={120}>
                       <PieChart>
-                        <Pie data={fleetStatus} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value">
-                          {fleetStatus.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                        <Pie
+                          data={fleetStatus}
+                          cx="50%" cy="50%"
+                          innerRadius={36} outerRadius={56}
+                          paddingAngle={3}
+                          dataKey="value"
+                          cursor="pointer"
+                          onClick={() => navigate('/vehicles')}
+                        >
+                          {fleetStatus.map((entry) => (
+                            <Cell
+                              key={entry.name}
+                              fill={entry.color}
+                              stroke="transparent"
+                            />
+                          ))}
                         </Pie>
                         <RechartsTooltip content={<ChartTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div style={{ flex: 1 }}>
                       {fleetStatus.map((f) => (
-                        <div key={f.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <div
+                          key={f.name}
+                          onClick={() => navigate('/vehicles')}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            marginBottom: 8, cursor: 'pointer', borderRadius: 6, padding: '2px 4px',
+                            transition: 'background 0.15s',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 8, height: 8, borderRadius: '50%', background: f.color }} />
                             <Text style={{ fontSize: 13 }}>{f.name}</Text>
@@ -283,9 +351,17 @@ export default function Dashboard() {
 
             {/* Weekly dispatch area chart */}
             <Col span={24}>
-              <Card style={{ borderRadius: 16 }} styles={{ body: { padding: '16px 20px 10px' } }}>
+              <Card
+                style={{ borderRadius: 16, cursor: 'pointer' }}
+                styles={{ body: { padding: '16px 20px 10px' } }}
+                onClick={() => navigate('/vehicle-requisition')}
+                hoverable
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Title level={5} style={{ margin: 0 }}>Weekly Requisitions</Title>
+                  <div>
+                    <Title level={5} style={{ margin: 0 }}>Weekly Requisitions</Title>
+                    <Text type="secondary" style={{ fontSize: 11 }}>Click to view all</Text>
+                  </div>
                   <Text style={{ color: '#52c41a', fontWeight: 700, fontSize: 22 }}>{s.weeklyTotal ?? 0}</Text>
                 </div>
                 <Spin spinning={statsLoading}>
@@ -299,7 +375,15 @@ export default function Dashboard() {
                       </defs>
                       <XAxis dataKey="day" tick={{ fill: '#8c9ab0', fontSize: 10 }} axisLine={false} tickLine={false} />
                       <RechartsTooltip content={<ChartTooltip />} />
-                      <Area type="monotone" dataKey="dispatches" stroke="#1677ff" strokeWidth={2} fill="url(#dGrad)" name="Requisitions" dot={false} />
+                      <Area
+                        type="monotone"
+                        dataKey="dispatches"
+                        stroke="#1677ff"
+                        strokeWidth={2}
+                        fill="url(#dGrad)"
+                        name="Requisitions"
+                        activeDot={{ r: 5, fill: '#1677ff', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 </Spin>
@@ -331,6 +415,10 @@ export default function Dashboard() {
                 size="small"
                 locale={{ emptyText: 'No requisitions yet' }}
                 style={{ borderRadius: '0 0 16px 16px', overflow: 'hidden' }}
+                onRow={() => ({
+                  onClick: () => navigate('/vehicle-requisition'),
+                  style: { cursor: 'pointer' },
+                })}
               />
             </Spin>
           </Card>
@@ -353,8 +441,18 @@ export default function Dashboard() {
                   color: a.color,
                   dot: <span style={{ fontSize: 13, color: a.color }}>{ALERT_ICONS[a.type] ?? <AlertOutlined />}</span>,
                   children: (
-                    <div style={{ paddingBottom: 4 }}>
+                    <div
+                      onClick={() => navigate(ALERT_ROUTES[a.type] ?? '/dashboard')}
+                      style={{
+                        paddingBottom: 4, cursor: 'pointer', borderRadius: 6,
+                        padding: '4px 6px', margin: '-4px -6px',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
                       <Text style={{ fontSize: 13 }}>{a.text}</Text>
+                      <ArrowRightOutlined style={{ fontSize: 10, marginLeft: 6, opacity: 0.4 }} />
                     </div>
                   ),
                 }))}
@@ -396,12 +494,17 @@ export default function Dashboard() {
                 return (
                   <div
                     key={n.id}
+                    onClick={() => navigate('/notices')}
                     style={{
                       display: 'flex', alignItems: 'flex-start', gap: 14,
                       padding: '14px 20px',
                       borderBottom: idx < recentNotices.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
                       opacity: n.readByMe ? 0.75 : 1,
+                      cursor: 'pointer',
+                      transition: 'background 0.15s',
                     }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     <div style={{ width: 4, minHeight: 44, borderRadius: 4, background: borderColor, flexShrink: 0, marginTop: 2 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -433,7 +536,7 @@ export default function Dashboard() {
                           size="small" type="text" icon={<CheckOutlined />}
                           style={{ color: '#52c41a', flexShrink: 0 }}
                           loading={readMut.isPending && readMut.variables === n.id}
-                          onClick={() => readMut.mutate(n.id)}
+                          onClick={(e) => { e.stopPropagation(); readMut.mutate(n.id); }}
                         />
                       </Tooltip>
                     )}
