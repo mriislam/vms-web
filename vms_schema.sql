@@ -77,9 +77,10 @@ CREATE TABLE driver_leave_balance (
 ) ENGINE=InnoDB;
 
 -- =============================================================
---  DISPATCH
+--  VEHICLE REQUISITION / DISPATCH
+--  Note: Dispatch entity maps to vehicle_requisition table
 -- =============================================================
-CREATE TABLE dispatch (
+CREATE TABLE vehicle_requisition (
   id           INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
   dispatch_no  VARCHAR(20)  NOT NULL UNIQUE,
   vehicle_reg  VARCHAR(20)  NOT NULL,
@@ -93,7 +94,7 @@ CREATE TABLE dispatch (
   purpose      TEXT         NULL,
   approved_by  VARCHAR(80)  NULL,
   fuel_used    DECIMAL(6,2) NULL COMMENT 'litres',
-  status       ENUM('pending','approved','in_progress','completed','cancelled') NOT NULL DEFAULT 'pending',
+  status       VARCHAR(20)  NOT NULL DEFAULT 'pending',
   created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_status     (status),
