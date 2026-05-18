@@ -1,0 +1,121 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-family: 'Roboto', 'Noto Sans Bengali', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.01em;
+}
+
+/* ── scrollbar ── */
+::-webkit-scrollbar            { width: 6px; height: 6px; }
+::-webkit-scrollbar-track      { background: transparent; }
+::-webkit-scrollbar-thumb      { background: rgba(128,128,128,0.25); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover{ background: rgba(128,128,128,0.45); }
+
+/* ── ant card title ── */
+.ant-card-head {
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.02em;
+}
+
+/* ── table header text ── */
+.ant-table-thead > tr > th {
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── table row ── */
+.ant-table-tbody > tr > td {
+  font-size: 13px;
+}
+
+/* ── sidebar menu group label ── */
+.ant-menu-item-group-title {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase;
+  opacity: 0.45;
+  padding: 12px 16px 4px !important;
+}
+
+/* ── button text ── */
+.ant-btn {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* ── statistic value ── */
+.ant-statistic-content-value {
+  font-weight: 700 !important;
+  font-family: 'Roboto', sans-serif !important;
+}
+
+/* ── statistic title ── */
+.ant-statistic-title {
+  font-weight: 500 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── page title spacing ── */
+h1.ant-typography, h2.ant-typography, h3.ant-typography,
+h4.ant-typography, h5.ant-typography {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ── tag ── */
+.ant-tag {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* ── modal title ── */
+.ant-modal-title {
+  font-weight: 700 !important;
+  font-size: 15px !important;
+}
+
+/* ── form label ── */
+.ant-form-item-label > label {
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.03em;
+}
+
+/* ── select & input placeholder ── */
+input::placeholder, textarea::placeholder {
+  font-family: 'Roboto', 'Noto Sans Bengali', sans-serif;
+  opacity: 0.5;
+}
+
+/* ── unicode / bangla text in inputs and display ── */
+input, textarea, .ant-input, .ant-input-textarea textarea {
+  font-family: 'Roboto', 'Noto Sans Bengali', 'Segoe UI', sans-serif !important;
+}
+
+/* ── popover ── */
+.ant-popover-inner {
+  border-radius: 10px !important;
+}
+
+/* ── dropdown ── */
+.ant-dropdown-menu {
+  border-radius: 10px !important;
+  padding: 4px !important;
+}
+.ant-dropdown-menu-item {
+  border-radius: 6px !important;
+  font-size: 13px;
+}

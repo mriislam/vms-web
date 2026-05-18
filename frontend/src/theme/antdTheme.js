@@ -1,0 +1,217 @@
+import { theme } from 'antd';
+
+const FONT = "'Roboto', 'Segoe UI', sans-serif";
+
+export const darkTheme = {
+  algorithm: theme.darkAlgorithm,
+  token: {
+    colorPrimary:        '#1677ff',
+    colorBgBase:         '#0b0f1a',
+    colorBgContainer:    '#121929',
+    colorBgElevated:     '#1a2236',
+    colorBgLayout:       '#0b0f1a',
+    colorBorder:         'rgba(255,255,255,0.08)',
+    colorBorderSecondary:'rgba(255,255,255,0.05)',
+    colorText:           '#e6edf3',
+    colorTextSecondary:  '#8b949e',
+    colorTextTertiary:   '#6e7681',
+    borderRadius:         8,
+    borderRadiusLG:       12,
+    borderRadiusSM:       6,
+    fontFamily:           FONT,
+    fontSize:             13,
+    fontSizeLG:           15,
+    fontSizeXL:           18,
+    fontWeightStrong:     600,
+    lineHeight:           1.6,
+    boxShadow:           '0 4px 24px rgba(0,0,0,0.4)',
+    boxShadowSecondary:  '0 2px 12px rgba(0,0,0,0.3)',
+    controlHeight:        34,
+    controlHeightLG:      40,
+    controlHeightSM:      28,
+  },
+  components: {
+    Layout: {
+      siderBg:   '#0b0f1a',
+      headerBg:  '#0b0f1a',
+      bodyBg:    '#0b0f1a',
+    },
+    Menu: {
+      darkItemBg:           '#0b0f1a',
+      darkSubMenuItemBg:    '#0f1625',
+      darkItemSelectedBg:   'rgba(22,119,255,0.18)',
+      darkItemSelectedColor:'#4096ff',
+      darkItemHoverBg:      'rgba(255,255,255,0.05)',
+      itemHeight:            38,
+      fontSize:              13,
+      fontFamily:            FONT,
+    },
+    Card: {
+      colorBgContainer:    '#121929',
+      colorBorderSecondary:'rgba(255,255,255,0.06)',
+      borderRadiusLG:       12,
+      paddingLG:            20,
+      fontFamily:            FONT,
+    },
+    Table: {
+      colorBgContainer: '#121929',
+      headerBg:         '#1a2236',
+      borderColor:      'rgba(255,255,255,0.06)',
+      rowHoverBg:       'rgba(22,119,255,0.07)',
+      headerColor:      '#8b949e',
+      headerSplitColor: 'rgba(255,255,255,0.04)',
+      fontFamily:        FONT,
+      fontSize:          13,
+    },
+    Button: {
+      fontFamily:    FONT,
+      fontWeight:    500,
+      borderRadius:  8,
+      controlHeight: 34,
+    },
+    Input: {
+      colorBgContainer:  'rgba(255,255,255,0.05)',
+      colorBorder:       'rgba(255,255,255,0.1)',
+      colorBgContainerDisabled: 'rgba(255,255,255,0.03)',
+      fontFamily:         FONT,
+      borderRadius:       8,
+      controlHeight:      34,
+    },
+    Select: {
+      colorBgContainer: 'rgba(255,255,255,0.05)',
+      colorBorder:      'rgba(255,255,255,0.1)',
+      fontFamily:        FONT,
+      borderRadius:      8,
+    },
+    Modal: {
+      colorBgElevated: '#1a2236',
+      fontFamily:       FONT,
+      borderRadiusLG:   14,
+    },
+    Popover: {
+      colorBgElevated: '#1a2236',
+      fontFamily:       FONT,
+    },
+    Tag: {
+      borderRadius:  6,
+      fontFamily:     FONT,
+      fontSize:       12,
+      fontSizeSM:     11,
+    },
+    Badge: {
+      fontFamily: FONT,
+    },
+    Typography: {
+      fontFamily: FONT,
+    },
+    Tabs: {
+      fontFamily: FONT,
+      fontSize:   13,
+    },
+    Form: {
+      fontFamily:   FONT,
+      labelFontSize: 13,
+    },
+    Checkbox: {
+      borderRadius: 4,
+    },
+    Statistic: {
+      fontFamily:    FONT,
+      titleFontSize: 12,
+      contentFontSize: 26,
+    },
+    Timeline: {
+      fontFamily: FONT,
+    },
+  },
+};
+
+export const lightTheme = {
+  algorithm: theme.defaultAlgorithm,
+  token: {
+    colorPrimary:        '#1677ff',
+    colorBgBase:         '#ffffff',
+    colorBgContainer:    '#ffffff',
+    colorBgLayout:       '#f0f2f5',
+    colorBgElevated:     '#ffffff',
+    colorText:           '#1a1f2e',
+    colorTextSecondary:  '#5c6370',
+    colorTextTertiary:   '#8b949e',
+    borderRadius:         8,
+    borderRadiusLG:       12,
+    borderRadiusSM:       6,
+    fontFamily:           FONT,
+    fontSize:             13,
+    fontSizeLG:           15,
+    fontWeightStrong:     600,
+    lineHeight:           1.6,
+    controlHeight:        34,
+    controlHeightLG:      40,
+    controlHeightSM:      28,
+  },
+  components: {
+    Layout: {
+      siderBg:  '#ffffff',
+      headerBg: '#ffffff',
+      bodyBg:   '#f0f2f5',
+    },
+    Menu: {
+      itemBg:           'transparent',
+      subMenuItemBg:    'transparent',
+      itemSelectedBg:   'rgba(22,119,255,0.1)',
+      itemSelectedColor:'#1677ff',
+      itemHoverBg:      'rgba(0,0,0,0.04)',
+      itemHeight:        38,
+      fontSize:          13,
+      fontFamily:        FONT,
+    },
+    Card: {
+      borderRadiusLG: 12,
+      paddingLG:       20,
+      fontFamily:      FONT,
+    },
+    Table: {
+      headerBg:    '#fafafa',
+      borderColor: 'rgba(0,0,0,0.06)',
+      rowHoverBg:  'rgba(22,119,255,0.04)',
+      fontFamily:   FONT,
+      fontSize:     13,
+    },
+    Button: {
+      fontFamily:    FONT,
+      fontWeight:    500,
+      borderRadius:  8,
+      controlHeight: 34,
+    },
+    Input: {
+      fontFamily:    FONT,
+      borderRadius:  8,
+      controlHeight: 34,
+    },
+    Select: {
+      fontFamily:   FONT,
+      borderRadius: 8,
+    },
+    Modal: {
+      borderRadiusLG: 14,
+      fontFamily:      FONT,
+    },
+    Tag: {
+      borderRadius: 6,
+      fontFamily:    FONT,
+      fontSize:      12,
+    },
+    Statistic: {
+      fontFamily:      FONT,
+      titleFontSize:   12,
+      contentFontSize: 26,
+    },
+    Typography: {
+      fontFamily: FONT,
+    },
+    Form: {
+      fontFamily:    FONT,
+      labelFontSize: 13,
+    },
+  },
+};

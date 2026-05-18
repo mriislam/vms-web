@@ -1,0 +1,47 @@
+# Node
+node_modules/
+dist/
+.env
+.env.local
+.env.production
+
+# Java / Maven
+backend/target/
+*.class
+*.war
+*.ear
+*.iml
+# Keep Maven wrapper scripts/properties; only ignore the downloaded jar binary
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Upgrade assistant artifacts
+.github/java-upgrade/
+backend/.github/
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.user
+*.sln.docstates
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+
+# Vite
+frontend/dist/
+frontend/.vite/
+
+# Uploads
+uploads/
+
+# Claude Code
+.claude/
