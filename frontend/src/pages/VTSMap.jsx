@@ -367,37 +367,52 @@ export default function VTSMap() {
                   <FlyTo lat={currentPoint.lat} lng={currentPoint.lng} zoom={14} />
                 )}
 
-                {/* ── Live mode markers ──────────────────────────── */}
-                {activeTab === 'live' && (selectedReg ? (
-                  currentLive && (
-                    <Marker position={[currentLive.lat, currentLive.lng]} icon={makeIcon('#52c41a', 16)}>
-                      <Popup>
-                        <div style={{ minWidth: 200 }}>
-                          <div style={{ fontWeight: 700, fontSize: 14 }}>{currentLive.vehicle}</div>
-                          <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>{currentLive.vehicleMake}</div>
-                          <div style={{ fontSize: 12 }}>🚀 {currentLive.speed} km/h · Heading {currentLive.heading}</div>
-                          <div style={{ fontSize: 12 }}>📍 {currentLive.location}</div>
-                          <div style={{ fontSize: 12 }}>⛽ {currentLive.fuel}%</div>
-                          <div style={{ fontSize: 12, marginTop: 4 }}>🗺 {currentLive.route}</div>
-                          <Progress percent={currentLive.progress} size="small" strokeColor="#1677ff" style={{ marginTop: 6 }} />
-                        </div>
-                      </Popup>
-                    </Marker>
-                  )
-                ) : liveAll.map(v => (
-                  <Marker key={v.key} position={[v.lat, v.lng]} icon={makeIcon(STATUS_COLOR[v.status] ?? '#52c41a')}>
+                {/* ── Live mode: selected vehicle trail + marker ─── */}
+                {activeTab === 'live' && selectedReg && currentLive && (<>
+                  {currentLive.trail?.length > 1 && (
+                    <Polyline
+                      positions={currentLive.trail}
+                      pathOptions={{ color: '#52c41a', weight: 4, opacity: 0.65, dashArray: '8 5' }}
+                    />
+                  )}
+                  <Marker position={[currentLive.lat, currentLive.lng]} icon={makeIcon('#52c41a', 16)}>
                     <Popup>
-                      <div style={{ minWidth: 180 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>{v.vehicle}</div>
-                        <div style={{ fontSize: 12, color: '#888' }}>{v.driver}</div>
-                        <div style={{ fontSize: 12 }}>🚀 {v.speed} km/h · ⛽ {v.fuel}%</div>
-                        <div style={{ fontSize: 12 }}>📍 {v.location}</div>
-                        <div style={{ fontSize: 12 }}>🗺 {v.route}</div>
-                        <Progress percent={v.progress} size="small" strokeColor="#1677ff" style={{ marginTop: 4 }} />
+                      <div style={{ minWidth: 200 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{currentLive.vehicle}</div>
+                        <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>{currentLive.vehicleMake}</div>
+                        <div style={{ fontSize: 12 }}>🚀 {currentLive.speed} km/h · Heading {currentLive.heading}</div>
+                        <div style={{ fontSize: 12 }}>📍 {currentLive.location}</div>
+                        <div style={{ fontSize: 12 }}>⛽ {currentLive.fuel}%</div>
+                        <div style={{ fontSize: 12, marginTop: 4 }}>🗺 {currentLive.route}</div>
+                        <Progress percent={currentLive.progress} size="small" strokeColor="#1677ff" style={{ marginTop: 6 }} />
                       </div>
                     </Popup>
                   </Marker>
-                )))}
+                </>)}
+
+                {/* ── Live mode: all vehicles trails + markers ─────── */}
+                {activeTab === 'live' && !selectedReg && (<>
+                  {liveAll.filter(v => v.trail?.length > 1).map(v => (
+                    <Polyline key={`trail-${v.key}`}
+                      positions={v.trail}
+                      pathOptions={{ color: STATUS_COLOR[v.status] ?? '#52c41a', weight: 3, opacity: 0.55, dashArray: '7 5' }}
+                    />
+                  ))}
+                  {liveAll.map(v => (
+                    <Marker key={v.key} position={[v.lat, v.lng]} icon={makeIcon(STATUS_COLOR[v.status] ?? '#52c41a')}>
+                      <Popup>
+                        <div style={{ minWidth: 180 }}>
+                          <div style={{ fontWeight: 700, fontSize: 14 }}>{v.vehicle}</div>
+                          <div style={{ fontSize: 12, color: '#888' }}>{v.driver}</div>
+                          <div style={{ fontSize: 12 }}>🚀 {v.speed} km/h · ⛽ {v.fuel}%</div>
+                          <div style={{ fontSize: 12 }}>📍 {v.location}</div>
+                          <div style={{ fontSize: 12 }}>🗺 {v.route}</div>
+                          <Progress percent={v.progress} size="small" strokeColor="#1677ff" style={{ marginTop: 4 }} />
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+                </>)}
 
                 {/* ── History mode: polyline + dots ──────────────── */}
                 {activeTab === 'history' && trackPoints.length > 0 && (<>

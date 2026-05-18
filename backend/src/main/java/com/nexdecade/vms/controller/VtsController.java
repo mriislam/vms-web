@@ -427,15 +427,40 @@ public class VtsController {
         LocalDateTime tNow = LocalDateTime.now();
         double[] pos = interpolateAlongWaypoints(waypoints, fraction, tNow);
 
-        Random rng = new Random(nowSeconds / 10 + d.getId());
-        int speed  = (int)(simulateSpeed(fraction, tNow));
-        if (speed < 5) speed = 0;
+        // Speed: always non-zero — city slow at start/end, highway in middle
+        double speedBase;
+        if (fraction < 0.08)      speedBase = 28 + fraction / 0.08 * 42;
+        else if (fraction > 0.92) speedBase = 70 - (fraction - 0.92) / 0.08 * 42;
+        else                      speedBase = 65;
+        Random rng = new Random(nowSeconds / 30 + d.getId()); // variation changes every 30 s
+        speedBase += (rng.nextDouble() - 0.5) * 18;
+        int speed = (int) Math.max(20, Math.min(95, speedBase));
+
+        // Trail: last 15 minutes — 30 points at 30-second intervals
+        // Points whose fraction exceeds current fraction belong to the previous cycle; skip them
+        // to prevent the polyline from jumping across the map.
+        List<double[]> trail = new ArrayList<>();
+        for (int i = 30; i >= 1; i--) {
+            long pastSec   = nowSeconds - (i * 30L);
+            double pastFrac = 0.02 + ((pastSec + phase) % CYCLE_SECS) / (double) CYCLE_SECS * 0.95;
+            if (pastFrac < fraction) {
+                LocalDateTime tPast = LocalDateTime.ofEpochSecond(pastSec, 0, ZoneOffset.UTC);
+                double[] tp = interpolateAlongWaypoints(waypoints, pastFrac, tPast);
+                trail.add(new double[]{
+                    Math.round(tp[0] * 100000.0) / 100000.0,
+                    Math.round(tp[1] * 100000.0) / 100000.0
+                });
+            }
+        }
+        // Current position at the tip of the trail
+        trail.add(new double[]{
+            Math.round(pos[0] * 100000.0) / 100000.0,
+            Math.round(pos[1] * 100000.0) / 100000.0
+        });
 
         double fuel = Math.round((85.0 - fraction * 65.0) * 10) / 10.0;
-
-        Vehicle  veh = vehicleMap.get(d.getVehicleReg());
+        Vehicle   veh = vehicleMap.get(d.getVehicleReg());
         GpsDevice dev = gpsDeviceRepo.findByVehicleReg(d.getVehicleReg()).orElse(null);
-
         int distKm = d.getDistance() != null && d.getDistance() > 0 ? d.getDistance() : 150;
 
         Map<String, Object> m = new LinkedHashMap<>();
@@ -455,7 +480,7 @@ public class VtsController {
         m.put("lng",          Math.round(pos[1] * 10000.0) / 10000.0);
         m.put("fuel",         fuel);
         m.put("heading",      calcHeading(originCoords, destCoords));
-        m.put("status",       speed > 0 ? "moving" : "idle");
+        m.put("status",       "moving");
         m.put("location",     interpolateLocationName(d.getOrigin(), d.getDestination(), fraction));
         m.put("purpose",      d.getPurpose());
         m.put("approvedBy",   d.getApprovedBy());
@@ -468,6 +493,7 @@ public class VtsController {
         m.put("clientId",     dev != null ? dev.getClientId() : "");
         m.put("clientMobile", dev != null ? dev.getClientMobile() : "");
         m.put("deviceModel",  dev != null ? dev.getDeviceModel() : "");
+        m.put("trail",        trail);
         return m;
     }
 
