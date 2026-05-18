@@ -232,6 +232,46 @@ CREATE TABLE notices (
 ) ENGINE=InnoDB;
 
 -- =============================================================
+--  NOTICE READS
+-- =============================================================
+CREATE TABLE notice_reads (
+  id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  notice_id  BIGINT       NOT NULL,
+  username   VARCHAR(60)  NOT NULL,
+  full_name  VARCHAR(100) NULL,
+  read_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_notice_user (notice_id, username),
+  INDEX idx_notice_id (notice_id),
+  INDEX idx_username  (username)
+) ENGINE=InnoDB;
+
+-- =============================================================
+--  ACCIDENTS
+-- =============================================================
+CREATE TABLE accidents (
+  id          BIGINT         NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  case_no     VARCHAR(20)    NOT NULL UNIQUE,
+  vehicle_reg VARCHAR(20)    NOT NULL,
+  driver_name VARCHAR(100)   NOT NULL,
+  date        DATE           NOT NULL,
+  type        VARCHAR(50)    NOT NULL,
+  severity    VARCHAR(10)    NOT NULL,
+  location    VARCHAR(200)   NOT NULL,
+  description TEXT           NULL,
+  casualties  INT            NULL,
+  damage      DECIMAL(14,2)  NULL,
+  status      VARCHAR(20)    NOT NULL DEFAULT 'open',
+  police_case VARCHAR(50)    NULL,
+  reported_by VARCHAR(100)   NULL,
+  action      TEXT           NULL,
+  created_at  DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_date       (date),
+  INDEX idx_status     (status),
+  INDEX idx_vehicle    (vehicle_reg)
+) ENGINE=InnoDB;
+
+-- =============================================================
 --  USERS
 -- =============================================================
 CREATE TABLE users (
