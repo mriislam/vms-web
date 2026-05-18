@@ -338,15 +338,14 @@ public class VtsController {
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to) {
 
+        // Best-available dispatch — any status, most recent first
         List<Dispatch> dispatches = dispatchRepo.findByVehicleReg(vehicleReg);
         Dispatch dispatch = dispatches.stream()
             .filter(d -> "in_progress".equals(d.getStatus()) || "completed".equals(d.getStatus()))
             .max(Comparator.comparing(d -> d.getStartTime() != null ? d.getStartTime() : d.getCreatedAt()))
-            .orElse(null);
-
-        if (dispatch == null) {
-            return ResponseEntity.ok(ApiResponse.ok(emptyHistory(vehicleReg)));
-        }
+            .orElseGet(() -> dispatches.stream()
+                .max(Comparator.comparing(d -> d.getCreatedAt() != null ? d.getCreatedAt() : LocalDateTime.MIN))
+                .orElse(null));
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime rangeStart, rangeEnd;
@@ -365,7 +364,6 @@ public class VtsController {
             case "range": {
                 LocalDateTime rs = from != null ? LocalDate.parse(from).atStartOfDay() : now.minusDays(7);
                 LocalDateTime re = to   != null ? LocalDate.parse(to).plusDays(1).atStartOfDay() : now;
-                // cap custom range to 7 days
                 if (ChronoUnit.DAYS.between(rs, re) > 7) re = rs.plusDays(7);
                 rangeStart = rs; rangeEnd = re; break;
             }
@@ -373,36 +371,34 @@ public class VtsController {
                 rangeStart = LocalDate.now().atStartOfDay(); rangeEnd = now;
         }
 
-        LocalDateTime tripStart = dispatch.getStartTime() != null
-            ? dispatch.getStartTime() : dispatch.getCreatedAt();
-        int distKm = dispatch.getDistance() != null ? dispatch.getDistance() : 150;
-        LocalDateTime tripEnd = dispatch.getEndTime() != null
-            ? dispatch.getEndTime()
-            : tripStart.plusMinutes((long)(distKm / 55.0 * 60));
+        // Ensure rangeEnd is never before rangeStart
+        if (rangeEnd.isBefore(rangeStart)) rangeEnd = rangeStart.plusHours(1);
 
-        LocalDateTime effStart = tripStart.isAfter(rangeStart) ? tripStart : rangeStart;
-        LocalDateTime effEnd   = tripEnd.isBefore(rangeEnd)    ? tripEnd   : rangeEnd;
+        // Route info: from best dispatch or defaults
+        String origin      = dispatch != null && dispatch.getOrigin()      != null ? dispatch.getOrigin()      : "Dhaka HQ";
+        String destination = dispatch != null && dispatch.getDestination()  != null ? dispatch.getDestination()  : "Chittagong";
+        int distKm         = dispatch != null && dispatch.getDistance()     != null && dispatch.getDistance() > 0
+                             ? dispatch.getDistance() : 150;
+        String dispatchNo  = dispatch != null ? dispatch.getDispatchNo() : "N/A";
 
-        if (effStart.isAfter(effEnd)) {
-            return ResponseEntity.ok(ApiResponse.ok(emptyHistory(vehicleReg)));
-        }
+        // Always generate track points for the full requested window
+        // (vehicle is simulated as having done its typical route during this period)
+        List<Map<String, Object>> points = generateTrackPoints(origin, destination, distKm, rangeStart, rangeEnd);
 
-        List<Map<String, Object>> points = generateTrackPoints(dispatch, effStart, effEnd, tripStart, tripEnd);
-
-        long tripTotalSecs = Math.max(1, ChronoUnit.SECONDS.between(tripStart, tripEnd));
-        long traveledSecs  = ChronoUnit.SECONDS.between(tripStart, effEnd);
-        double fraction    = Math.min(1.0, Math.max(0, (double) traveledSecs / tripTotalSecs));
+        long windowMins = ChronoUnit.MINUTES.between(rangeStart, rangeEnd);
+        double fraction = Math.min(1.0, windowMins / Math.max(1.0, distKm / 55.0 * 60.0));
+        int traveledKm  = (int)(distKm * fraction);
 
         GpsDevice dev = gpsDeviceRepo.findByVehicleReg(vehicleReg).orElse(null);
         Vehicle   veh = vehicleRepo.findByRegNo(vehicleReg).orElse(null);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("vehicleReg",  vehicleReg);
-        result.put("dispatchNo",  dispatch.getDispatchNo());
-        result.put("origin",      dispatch.getOrigin());
-        result.put("destination", dispatch.getDestination());
+        result.put("dispatchNo",  dispatchNo);
+        result.put("origin",      origin);
+        result.put("destination", destination);
         result.put("totalKm",     distKm);
-        result.put("traveledKm",  (int)(distKm * fraction));
+        result.put("traveledKm",  traveledKm);
         result.put("pointCount",  points.size());
         result.put("trackPoints", points);
         result.put("imei",        dev != null ? dev.getImei() : "");
@@ -498,12 +494,15 @@ public class VtsController {
     }
 
     private List<Map<String, Object>> generateTrackPoints(
-            Dispatch dispatch, LocalDateTime effStart, LocalDateTime effEnd,
-            LocalDateTime tripStart, LocalDateTime tripEnd) {
+            String origin, String destination, int distKm,
+            LocalDateTime effStart, LocalDateTime effEnd) {
 
-        List<double[]> waypoints = getRouteWaypoints(dispatch.getOrigin(), dispatch.getDestination());
-        List<String>   labels    = getRouteLabels(dispatch.getOrigin(), dispatch.getDestination());
-        long tripTotalSecs = Math.max(1, ChronoUnit.SECONDS.between(tripStart, tripEnd));
+        List<double[]> waypoints = getRouteWaypoints(origin, destination);
+        List<String>   labels    = getRouteLabels(origin, destination);
+        long totalSecs = Math.max(1, ChronoUnit.SECONDS.between(effStart, effEnd));
+
+        // How many seconds does this trip take at 55 km/h average?
+        long tripDurSecs = Math.max(1, (long)(distKm / 55.0 * 3600));
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm:ss a");
         List<Map<String, Object>> points = new ArrayList<>();
@@ -511,19 +510,20 @@ public class VtsController {
         LocalDateTime t = effStart;
 
         while (!t.isAfter(effEnd)) {
-            long elapsedSecs = ChronoUnit.SECONDS.between(tripStart, t);
-            double fraction  = Math.max(0, Math.min(1.0, (double) elapsedSecs / tripTotalSecs));
+            long elapsedSecs = ChronoUnit.SECONDS.between(effStart, t);
+            // fraction within the trip: map the window duration proportionally
+            double fraction = Math.min(1.0, (double) elapsedSecs / tripDurSecs);
 
             double[] pos = interpolateAlongWaypoints(waypoints, fraction, t);
             double speed  = simulateSpeed(fraction, t);
-            String status = speed > 0 ? "running" : "stopped";
+            String status = speed > 5 ? "running" : "stopped";
             String locDesc = resolveLabel(labels, fraction);
 
             Map<String, Object> pt = new LinkedHashMap<>();
             pt.put("no",           no++);
             pt.put("timestamp",    t.format(fmt));
-            pt.put("lat",          pos[0]);
-            pt.put("lng",          pos[1]);
+            pt.put("lat",          Math.round(pos[0] * 100000.0) / 100000.0);
+            pt.put("lng",          Math.round(pos[1] * 100000.0) / 100000.0);
             pt.put("speed",        Math.round(speed * 10.0) / 10.0);
             pt.put("engineStatus", status);
             pt.put("location",     locDesc);

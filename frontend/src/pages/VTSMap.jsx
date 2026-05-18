@@ -25,31 +25,36 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-/* ── Car SVG icon (Material car, colored) ──────────────────────── */
+/* ── Solid vehicle icon: filled disc + top-down car silhouette ─── */
 function makeVehicleIcon(color = '#52c41a', selected = false) {
-  const ring = selected
-    ? `<div style="position:absolute;top:-5px;right:-5px;width:14px;height:14px">
-         <div style="position:absolute;inset:0;border-radius:50%;background:${color};opacity:.3;animation:vtsPulse 1.3s ease-out infinite"></div>
-         <div style="position:absolute;top:3px;left:3px;width:8px;height:8px;border-radius:50%;background:${color}"></div>
-       </div>`
+  const sz = selected ? 38 : 32;
+  const half = sz / 2;
+  const pulse = selected
+    ? `<div style="position:absolute;inset:-7px;border-radius:50%;border:3px solid ${color};
+         opacity:.55;animation:vtsPulse 1.3s ease-out infinite;pointer-events:none"></div>`
     : '';
   return L.divIcon({
     className: '',
-    html: `<div style="position:relative;width:28px;height:28px">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28"
-           style="filter:drop-shadow(0 2px 5px rgba(0,0,0,.55))">
-        <path fill="${color}"
-          d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8
-             c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1
-             v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-5h14v5z"/>
-        <circle fill="rgba(255,255,255,.9)" cx="7.5"  cy="14.5" r="1.5"/>
-        <circle fill="rgba(255,255,255,.9)" cx="16.5" cy="14.5" r="1.5"/>
+    html: `<div style="position:relative;width:${sz}px;height:${sz}px">
+      ${pulse}
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"
+           width="${sz}" height="${sz}"
+           style="filter:drop-shadow(0 2px 7px rgba(0,0,0,.6));display:block">
+        <!-- Solid disc background -->
+        <circle cx="16" cy="16" r="15" fill="${color}" stroke="rgba(255,255,255,0.92)" stroke-width="2"/>
+        <!-- White car body (top-down silhouette) -->
+        <path fill="white" d="M21.5 7.5 Q23 7.5 23.5 9.5 L24.5 15 L24.5 22.5
+          Q24.5 24.5 22.5 24.5 L9.5 24.5 Q7.5 24.5 7.5 22.5 L7.5 15
+          L8.5 9.5 Q9 7.5 10.5 7.5 Z"/>
+        <!-- Windshield (glass slot at front) -->
+        <rect fill="${color}" opacity="0.5" x="10" y="10.5" width="12" height="4" rx="1.5"/>
+        <!-- Rear window -->
+        <rect fill="${color}" opacity="0.5" x="10" y="20.5" width="12" height="3" rx="1.5"/>
       </svg>
-      ${ring}
     </div>`,
-    iconSize:    [28, 28],
-    iconAnchor:  [14, 26],
-    popupAnchor: [0, -28],
+    iconSize:    [sz, sz],
+    iconAnchor:  [half, half],
+    popupAnchor: [0, -(half + 4)],
   });
 }
 
