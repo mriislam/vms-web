@@ -218,15 +218,17 @@ CREATE TABLE inventory (
 --  NOTICES
 -- =============================================================
 CREATE TABLE notices (
-  id         INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  title      VARCHAR(120) NOT NULL,
-  body       TEXT         NOT NULL,
-  priority   ENUM('high','medium','low') NOT NULL DEFAULT 'medium',
-  category   VARCHAR(40)  NOT NULL DEFAULT 'General' COMMENT 'General|Operations|Finance|HR|Safety|IT',
-  posted_by  VARCHAR(80)  NOT NULL DEFAULT 'Admin',
-  date       DATE         NOT NULL DEFAULT (CURDATE()),
-  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  id              INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  title           VARCHAR(120) NOT NULL,
+  body            TEXT         NOT NULL,
+  priority        ENUM('high','medium','low') NOT NULL DEFAULT 'medium',
+  category        VARCHAR(40)  NOT NULL DEFAULT 'General' COMMENT 'General|Operations|Finance|HR|Safety|IT',
+  posted_by       VARCHAR(80)  NOT NULL DEFAULT 'Admin',
+  date            DATE         NOT NULL DEFAULT (CURDATE()),
+  attachment_name VARCHAR(255) NULL,
+  attachment_path VARCHAR(500) NULL,
+  created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_priority (priority),
   INDEX idx_date     (date)
 ) ENGINE=InnoDB;
