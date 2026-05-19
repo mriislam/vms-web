@@ -7,7 +7,7 @@ import {
 import { Button, DatePicker, Input, Progress, Select, Segmented, Spin, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import L from 'leaflet';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import { vtsService } from '../services/vtsService';
 
@@ -193,6 +193,73 @@ function HistoryPointPopup({ p, i }) {
   );
 }
 
+/* ── Bearing calculation (degrees, 0 = north, clockwise) ─────────── */
+function calcBearing(lat1, lng1, lat2, lng2) {
+  const R = Math.PI / 180;
+  const dLon = (lng2 - lng1) * R;
+  const φ1 = lat1 * R, φ2 = lat2 * R;
+  const y = Math.sin(dLon) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+/* ── Smooth animated marker (Google-Maps-style movement) ──────────── */
+function SmoothMarker({ position, heading = 0, icon, duration = 800, eventHandlers, children }) {
+  const markerRef = useRef(null);
+  const animRef   = useRef(null);
+  const fromPos   = useRef(null);
+  const fromHead  = useRef(heading);
+
+  /* Update icon (heading snap) when icon changes */
+  useEffect(() => {
+    if (markerRef.current && icon) markerRef.current.setIcon(icon);
+  }, [icon]);
+
+  /* Smooth position + heading animation triggered by position change */
+  useEffect(() => {
+    const marker = markerRef.current;
+    if (!marker) { fromPos.current = [...position]; fromHead.current = heading; return; }
+
+    const [fLat, fLng] = fromPos.current ?? position;
+    const fh = fromHead.current;
+
+    fromPos.current = [...position];
+    fromHead.current = heading;
+
+    const [tLat, tLng] = position;
+    cancelAnimationFrame(animRef.current);
+
+    /* Reset to start — overrides react-leaflet's instant setLatLng */
+    marker.setLatLng([fLat, fLng]);
+    if (fLat === tLat && fLng === tLng) return;
+
+    /* Shortest heading rotation */
+    const hDiff = ((heading - fh + 540) % 360) - 180;
+    const start = performance.now();
+
+    function step(ts) {
+      const t = Math.min((ts - start) / duration, 1);
+      const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2; // easeInOutQuad
+      marker.setLatLng([fLat + (tLat - fLat) * e, fLng + (tLng - fLng) * e]);
+      const el = marker.getElement?.();
+      if (el) {
+        const g = el.querySelector('g[transform]');
+        if (g) g.setAttribute('transform', `rotate(${((fh + hDiff * e + 360) % 360).toFixed(1)},16,16)`);
+      }
+      if (t < 1) animRef.current = requestAnimationFrame(step);
+    }
+    animRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position[0], position[1], heading, duration]);
+
+  return (
+    <Marker ref={markerRef} position={position} icon={icon} eventHandlers={eventHandlers}>
+      {children}
+    </Marker>
+  );
+}
+
 /* ── Dark popup style injected once ─────────────────────────────── */
 const DARK_POPUP_CSS = `
   .dark-popup .leaflet-popup-content-wrapper {
@@ -229,8 +296,11 @@ export default function VTSMap() {
   const [playSpeed,   setPlaySpeed]   = useState(200);
   const [dispMode,    setDispMode]    = useState('Markers');
 
-  const timerRef = useRef(null);
-  const playRef  = useRef(null);
+  const [liveBearing, setLiveBearing] = useState(0);
+
+  const timerRef       = useRef(null);
+  const playRef        = useRef(null);
+  const prevLivePosRef = useRef(null);
 
   /* inject dark popup CSS once */
   useEffect(() => {
@@ -252,7 +322,18 @@ export default function VTSMap() {
   }, []);
 
   const fetchOne = useCallback(async (reg) => {
-    try { const r = await vtsService.getLiveOne(reg); setLiveOne(r.data.data); } catch {}
+    try {
+      const r = await vtsService.getLiveOne(reg);
+      const d = r.data.data;
+      if (d && prevLivePosRef.current) {
+        const { lat: pLat, lng: pLng } = prevLivePosRef.current;
+        if (pLat !== d.lat || pLng !== d.lng) {
+          setLiveBearing(calcBearing(pLat, pLng, d.lat, d.lng));
+        }
+      }
+      if (d) prevLivePosRef.current = { lat: d.lat, lng: d.lng };
+      setLiveOne(d);
+    } catch {}
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -274,6 +355,8 @@ export default function VTSMap() {
     setHistData(null);
     setPlaying(false);
     setPlayIdx(0);
+    setLiveBearing(0);
+    prevLivePosRef.current = null;
     clearInterval(playRef.current);
     if (reg) fetchOne(reg);
     else setLiveOne(null);
@@ -335,6 +418,19 @@ export default function VTSMap() {
   const curPt    = trackPts[playIdx];
   const moving   = liveAll.filter(v => v.status === 'moving').length;
   const totalVeh = devices.length;
+
+  const histBearing = useMemo(() => {
+    if (!trackPts.length) return 0;
+    if (playIdx < trackPts.length - 1) {
+      const a = trackPts[playIdx], b = trackPts[playIdx + 1];
+      return calcBearing(a.lat, a.lng, b.lat, b.lng);
+    }
+    if (playIdx > 0) {
+      const a = trackPts[playIdx - 1], b = trackPts[playIdx];
+      return calcBearing(a.lat, a.lng, b.lat, b.lng);
+    }
+    return 0;
+  }, [trackPts, playIdx]);
 
   const filteredDevices = devices.filter(d => {
     if (!search) return true;
@@ -943,33 +1039,44 @@ export default function VTSMap() {
           {activeTab === 'history' && trackPts.length > 1 && !playing && <FitBounds points={trackPts} />}
           {activeTab === 'history' && curPt && playing && <FlyTo lat={curPt.lat} lng={curPt.lng} zoom={14} />}
 
-          {/* Live: single selected vehicle */}
+          {/* Live: single selected vehicle — smooth GPS-style movement */}
           {activeTab === 'live' && selectedReg && liveCur && (<>
             {liveCur.trail?.length > 1 && (
               <Polyline positions={liveCur.trail}
                 pathOptions={{ color: '#52c41a', weight: 4, opacity: 0.7, dashArray: '10 6' }} />
             )}
-            <Marker position={[liveCur.lat, liveCur.lng]} icon={makeVehicleIcon('#52c41a', true, liveCur.heading ?? 0)}>
+            <SmoothMarker
+              key={`live-${selectedReg}`}
+              position={[liveCur.lat, liveCur.lng]}
+              heading={liveBearing}
+              icon={makeVehicleIcon('#52c41a', true, liveBearing)}
+              duration={4500}
+            >
               <Popup className="dark-popup" minWidth={300}>
                 <DarkPopup v={liveCur} onCopy={copyCoords} />
               </Popup>
-            </Marker>
+            </SmoothMarker>
           </>)}
 
-          {/* Live: all vehicles */}
+          {/* Live: all vehicles — each marker smoothly tracks its own GPS updates */}
           {activeTab === 'live' && !selectedReg && (<>
             {liveAll.filter(v => v.trail?.length > 1).map(v => (
               <Polyline key={`trail-${v.key}`} positions={v.trail}
                 pathOptions={{ color: STATUS_COLOR[v.status] ?? '#52c41a', weight: 3, opacity: 0.5, dashArray: '8 5' }} />
             ))}
             {liveAll.map(v => (
-              <Marker key={v.key} position={[v.lat, v.lng]}
+              <SmoothMarker
+                key={v.key}
+                position={[v.lat, v.lng]}
+                heading={v.heading ?? 0}
                 icon={makeVehicleIcon(STATUS_COLOR[v.status] ?? '#52c41a', false, v.heading ?? 0)}
-                eventHandlers={{ click: () => onSelect(v.vehicle) }}>
+                duration={4500}
+                eventHandlers={{ click: () => onSelect(v.vehicle) }}
+              >
                 <Popup className="dark-popup" minWidth={300}>
                   <DarkPopup v={v} onCopy={copyCoords} />
                 </Popup>
-              </Marker>
+              </SmoothMarker>
             ))}
           </>)}
 
@@ -994,20 +1101,23 @@ export default function VTSMap() {
               </CircleMarker>
             ))}
 
-            {/* Vehicle icon (same as live) at current playback position */}
+            {/* Vehicle icon at current playback position — smooth movement + heading */}
             {curPt && (
-              <Marker
-                key={`hist-vehicle-${playIdx}`}
+              <SmoothMarker
+                key={`hist-${selectedReg}`}
                 position={[curPt.lat, curPt.lng]}
+                heading={histBearing}
                 icon={makeVehicleIcon(
                   curPt.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
                   true,
-                  curPt.heading ?? 0
-                )}>
+                  histBearing
+                )}
+                duration={Math.max(playSpeed * 0.85, 100)}
+              >
                 <Popup className="dark-popup" minWidth={260}>
                   <HistoryPointPopup p={curPt} i={playIdx} />
                 </Popup>
-              </Marker>
+              </SmoothMarker>
             )}
           </>)}
         </MapContainer>
