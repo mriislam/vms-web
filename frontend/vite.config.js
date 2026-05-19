@@ -7,9 +7,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://localhost:8443',
+        target: 'https://demo-vms.nexdecade.com',
         changeOrigin: true,
-        secure: false, // allow self-signed cert in dev
+        secure: false,
       },
     },
   },

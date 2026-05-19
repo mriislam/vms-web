@@ -26,8 +26,8 @@ public class VtsController {
     private final VehicleRepository     vehicleRepo;
     private final GpsDeviceRepository   gpsDeviceRepo;
 
-    /** Live position cycles every 15 minutes — full route visible in one watch session */
-    private static final long CYCLE_SECS = 900L;
+    /** Live position: full route completes in 6 hours at realistic road speed (~50 km/h avg) */
+    private static final long CYCLE_SECS = 21600L;
 
     private static final DateTimeFormatter POS_FMT = DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm:ss a");
 
@@ -102,13 +102,18 @@ public class VtsController {
             new double[]{24.3745, 91.4138},  // Habiganj
             new double[]{24.8949, 91.8687}   // Sylhet
         ));
-        // Dhaka → Rajshahi via Bangabandhu Bridge
+        // Dhaka → Rajshahi via N4 highway / Bangabandhu Bridge (correct road path)
         ROUTE_WAYPOINTS.put("dhaka|rajshahi", Arrays.asList(
             new double[]{23.8103, 90.4125},  // Dhaka
-            new double[]{23.8584, 90.2668},  // Savar
-            new double[]{23.8645, 90.0027},  // Manikganj
-            new double[]{24.1037, 89.7809},  // Bangabandhu Bridge
+            new double[]{23.8716, 90.3905},  // Abdullahpur / N4 north
+            new double[]{23.9889, 90.4135},  // Gazipur / Joydevpur
+            new double[]{24.0743, 90.2105},  // Kaliakair
+            new double[]{24.2513, 89.9167},  // Tangail city
+            new double[]{24.0931, 89.8097},  // Elenga / bridge approach
+            new double[]{24.0857, 89.7553},  // Bangabandhu Bridge
+            new double[]{24.2050, 89.7200},  // Sirajganj south
             new double[]{24.4507, 89.7003},  // Sirajganj
+            new double[]{24.3200, 89.4500},  // Ullapara / N5 west
             new double[]{24.3745, 88.6042}   // Rajshahi
         ));
         // Dhaka → Mymensingh via Gazipur
@@ -141,12 +146,15 @@ public class VtsController {
             new double[]{22.7800, 90.3600},  // Barisal outskirts
             new double[]{22.7010, 90.3535}   // Barisal
         ));
-        // Dhaka → Rangpur via Bangabandhu Bridge → Bogura
+        // Dhaka → Rangpur via N4 / Bangabandhu Bridge → Bogura
         ROUTE_WAYPOINTS.put("dhaka|rangpur", Arrays.asList(
             new double[]{23.8103, 90.4125},  // Dhaka
-            new double[]{23.8584, 90.2668},  // Savar
-            new double[]{23.8645, 90.0027},  // Manikganj
-            new double[]{24.1037, 89.7809},  // Bangabandhu Bridge
+            new double[]{23.8716, 90.3905},  // Abdullahpur N4
+            new double[]{23.9889, 90.4135},  // Gazipur
+            new double[]{24.0743, 90.2105},  // Kaliakair
+            new double[]{24.2513, 89.9167},  // Tangail
+            new double[]{24.0931, 89.8097},  // Elenga
+            new double[]{24.0857, 89.7553},  // Bangabandhu Bridge
             new double[]{24.4507, 89.7003},  // Sirajganj
             new double[]{24.8500, 89.3700},  // Bogura
             new double[]{25.7439, 89.2752}   // Rangpur
@@ -518,6 +526,7 @@ public class VtsController {
         m.put("clientMobile", dev != null ? dev.getClientMobile() : "");
         m.put("deviceModel",  dev != null ? dev.getDeviceModel() : "");
         m.put("trail",        trail);
+        m.put("routeWaypoints", waypoints);
         return m;
     }
 

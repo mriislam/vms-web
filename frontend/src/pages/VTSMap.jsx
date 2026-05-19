@@ -39,74 +39,123 @@ const STATUS_COLOR = { moving: '#52c41a', parked: '#fa8c16', idle: '#1677ff' };
 
 /* ── Popup card — module scope, theme-aware ──────────────────────── */
 function DarkPopup({ v, onCopy, dark = true }) {
-  const speed = typeof v?.speed === 'number' ? v.speed.toFixed(2) : (v?.speed ?? '0.00');
-  const panelBg2 = dark ? '#161b22'          : '#f4f6f8';
-  const textSec  = dark ? '#8b949e'          : '#6b7280';
-  const textPri  = dark ? '#e6edf3'          : '#1f2937';
-  const bg       = dark ? '#0d1117'          : '#ffffff';
+  const [copied, setCopied] = useState(false);
+  const [now, setNow]       = useState(() => new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  function handleCopy() {
+    onCopy?.(v?.lat, v?.lng);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  const speed  = typeof v?.speed === 'number' ? v.speed.toFixed(1) : (v?.speed ?? '0.0');
+  const status = v?.status ?? 'moving';
+  const statusColor = { moving: '#52c41a', parked: '#fa8c16', idle: '#1677ff' }[status] ?? '#52c41a';
+  const statusLabel = { moving: 'MOVING', parked: 'PARKED', idle: 'IDLE' }[status] ?? 'LIVE';
+
+  const textPri = dark ? '#e6edf3' : '#1f2937';
+  const textSec = dark ? '#8b949e' : '#6b7280';
+  const bg      = dark ? '#0d1117' : '#ffffff';
+  const divLine = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+  const rowBg   = dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)';
+
+  const latStr = typeof v?.lat === 'number' ? v.lat.toFixed(6) : (v?.lat ?? '—');
+  const lngStr = typeof v?.lng === 'number' ? v.lng.toFixed(6) : (v?.lng ?? '—');
+
   return (
-    <div style={{ minWidth: 300, fontFamily: 'inherit', color: textPri, background: bg, borderRadius: 12 }}>
+    <div style={{ minWidth: 380, fontFamily: 'system-ui,-apple-system,sans-serif', color: textPri, background: bg, borderRadius: 14 }}>
+
       {/* Header */}
       <div style={{
-        padding: '10px 14px 8px',
-        borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        padding: '12px 16px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        borderBottom: `1px solid ${divLine}`,
       }}>
         <div>
-          <div style={{ fontSize: 10, color: '#1677ff', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 2 }}>VEHICLE</div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: textPri, letterSpacing: '-0.02em' }}>{v?.vehicle}</div>
-          {v?.positionTime && (
-            <div style={{ fontSize: 10, color: textSec, marginTop: 2 }}>{v.positionTime}</div>
+          <div style={{ fontSize: 10, color: '#1677ff', fontWeight: 700, letterSpacing: '0.12em', marginBottom: 2 }}>VEHICLE TRACKER</div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: textPri, letterSpacing: '-0.02em' }}>{v?.vehicle}</div>
+          {v?.driver && (
+            <div style={{ fontSize: 11, color: textSec, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>{v.driver}</span>
+              {v?.clientMobile && (
+                <span style={{ color: '#58a6ff', fontFamily: 'monospace' }}>{v.clientMobile}</span>
+              )}
+            </div>
           )}
         </div>
-        <div style={{
-          background: 'rgba(82,196,26,0.15)', border: '1px solid rgba(82,196,26,0.4)',
-          borderRadius: 20, padding: '3px 10px', display: 'flex', alignItems: 'center', gap: 5,
-        }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#52c41a', animation: 'vtsPulse 1.5s ease-out infinite' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#52c41a' }}>RUNNING</span>
+        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: `${statusColor}18`, border: `1px solid ${statusColor}50`,
+            borderRadius: 20, padding: '3px 10px',
+          }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: '50%', background: statusColor,
+              animation: status === 'moving' ? 'vtsPulse 1.5s ease-out infinite' : 'none',
+            }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: statusColor }}>{statusLabel}</span>
+          </div>
+          <div style={{ fontSize: 10, color: textSec, marginTop: 5, textAlign: 'right' }}>
+            {now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+          </div>
+          <div style={{ fontSize: 12, color: textSec, fontFamily: 'monospace', fontWeight: 600, textAlign: 'right' }}>
+            {now.toLocaleTimeString()}
+          </div>
         </div>
       </div>
 
-      {/* Speed + Position */}
-      <div style={{ display: 'flex', padding: '10px 14px', gap: 14 }}>
-        {/* Speed */}
+      {/* Speed + Route/Location */}
+      <div style={{ display: 'flex', borderBottom: `1px solid ${divLine}` }}>
         <div style={{
-          background: 'rgba(82,196,26,0.08)', border: '1px solid rgba(82,196,26,0.2)',
-          borderRadius: 10, padding: '8px 14px', minWidth: 90, textAlign: 'center',
+          padding: '12px 14px', minWidth: 100, textAlign: 'center',
+          borderRight: `1px solid ${divLine}`,
+          background: `linear-gradient(180deg,${statusColor}12 0%,transparent 100%)`,
         }}>
-          <div style={{ fontSize: 10, color: '#52c41a', fontWeight: 700, letterSpacing: '0.08em' }}>SPEED</div>
-          <div style={{ fontSize: 30, fontWeight: 900, color: '#52c41a', lineHeight: 1.1 }}>{speed}</div>
-          <div style={{ fontSize: 11, color: textSec }}>km/h</div>
-          <div style={{ fontSize: 9, color: '#484f58', marginTop: 4 }}>LIMIT 100 km/h</div>
+          <div style={{ fontSize: 9, color: statusColor, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 2 }}>SPEED</div>
+          <div style={{ fontSize: 34, fontWeight: 900, color: statusColor, lineHeight: 1 }}>{speed}</div>
+          <div style={{ fontSize: 10, color: textSec, marginTop: 1 }}>km/h</div>
         </div>
-
-        {/* Position + Location */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>POSITION</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: textPri, fontFamily: 'monospace' }}>
-                {v?.lat}, {v?.lng}
-              </span>
-              <button
-                onClick={() => onCopy?.(v?.lat, v?.lng)}
-                style={{ background: 'rgba(88,166,255,0.15)', border: '1px solid rgba(88,166,255,0.3)',
-                  borderRadius: 4, padding: '1px 6px', cursor: 'pointer', color: '#58a6ff', fontSize: 10 }}>
-                ⧉
-              </button>
+        <div style={{ flex: 1, padding: '12px 14px', minWidth: 0 }}>
+          {v?.route && (
+            <div style={{ marginBottom: 7 }}>
+              <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 2 }}>ROUTE</div>
+              <div style={{ fontSize: 11, color: textPri, lineHeight: 1.3 }}>{v.route}</div>
             </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 10, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>LOCATION</div>
-            <div style={{ fontSize: 11, color: '#c9d1d9', lineHeight: 1.5 }}>{v?.location}</div>
-          </div>
-          {v?.driver && (
-            <div style={{ marginTop: 6, fontSize: 11, color: textSec }}>
-              <span style={{ color: '#58a6ff' }}>Driver: </span>{v.driver}
+          )}
+          {v?.location && (
+            <div>
+              <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 2 }}>LOCATION</div>
+              <div style={{ fontSize: 11, color: textPri, lineHeight: 1.4 }}>{v.location}</div>
             </div>
           )}
         </div>
+      </div>
+
+      {/* GPS Position */}
+      <div style={{
+        padding: '10px 16px', background: rowBg,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>GPS POSITION</div>
+          <div style={{ fontSize: 12, color: textPri, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+            {latStr}°N&nbsp;&nbsp;{lngStr}°E
+          </div>
+        </div>
+        <button onClick={handleCopy} style={{
+          background: copied ? 'rgba(82,196,26,0.18)' : 'rgba(88,166,255,0.12)',
+          border: `1px solid ${copied ? 'rgba(82,196,26,0.45)' : 'rgba(88,166,255,0.3)'}`,
+          borderRadius: 6, padding: '5px 12px', cursor: 'pointer',
+          color: copied ? '#52c41a' : '#58a6ff', fontSize: 11, fontWeight: 600,
+          display: 'flex', alignItems: 'center', gap: 4,
+          transition: 'all 0.2s', flexShrink: 0, whiteSpace: 'nowrap',
+        }}>
+          {copied ? '✓ Copied' : '⧉ Copy'}
+        </button>
       </div>
     </div>
   );
@@ -236,9 +285,15 @@ function SmoothMarker({ position, heading = 0, icon, duration = 800, eventHandle
 
 /* ── Popup CSS for both themes ───────────────────────────────────── */
 const POPUP_CSS = `
+  @keyframes vtsPulse {
+    0%   { opacity: 1; transform: scale(1); }
+    50%  { opacity: 0.5; transform: scale(1.5); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
   .dark-popup .leaflet-popup-content-wrapper {
     background: #0d1117; border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px; padding: 0; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    border-radius: 14px; padding: 0; box-shadow: 0 10px 40px rgba(0,0,0,0.65);
   }
   .dark-popup .leaflet-popup-content { margin: 0; }
   .dark-popup .leaflet-popup-tip { background: #0d1117; }
@@ -246,7 +301,7 @@ const POPUP_CSS = `
 
   .light-popup .leaflet-popup-content-wrapper {
     background: #ffffff; border: 1px solid rgba(0,0,0,0.1);
-    border-radius: 12px; padding: 0; box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+    border-radius: 14px; padding: 0; box-shadow: 0 8px 32px rgba(0,0,0,0.14);
   }
   .light-popup .leaflet-popup-content { margin: 0; }
   .light-popup .leaflet-popup-tip { background: #ffffff; }
@@ -1044,16 +1099,23 @@ export default function VTSMap() {
           <MapCapture onMap={setLeafletMap} />
 
           {/* Fly to selected vehicle */}
-          {activeTab === 'live' && liveCur && <FlyTo lat={liveCur.lat} lng={liveCur.lng} zoom={14} />}
+          {activeTab === 'live' && liveCur && <FlyTo lat={liveCur.lat} lng={liveCur.lng} zoom={13} />}
           {activeTab === 'history' && trackPts.length > 1 && !playing && <FitBounds points={trackPts} />}
           {activeTab === 'history' && curPt && playing && <FlyTo lat={curPt.lat} lng={curPt.lng} zoom={14} />}
 
           {/* Live: single selected vehicle — smooth GPS-style movement */}
           {activeTab === 'live' && selectedReg && liveCur && (<>
-            {/* Trail excludes last point (destination) to prevent road jumping ahead of vehicle */}
-            {liveCur.trail?.length > 2 && (
-              <Polyline positions={liveCur.trail.slice(0, -1)}
-                pathOptions={{ color: '#52c41a', weight: 4, opacity: 0.7, dashArray: '10 6' }} />
+            {/* Planned route — full origin→destination path (blue dashed) */}
+            {liveCur.routeWaypoints?.length > 1 && (
+              <Polyline
+                positions={liveCur.routeWaypoints}
+                pathOptions={{ color: '#1677ff', weight: 3, opacity: 0.35, dashArray: '12 8' }} />
+            )}
+            {/* Traveled trail — solid green, up to current position */}
+            {liveCur.trail?.length >= 2 && (
+              <Polyline
+                positions={liveCur.trail.length >= 3 ? liveCur.trail.slice(0, -1) : liveCur.trail}
+                pathOptions={{ color: '#52c41a', weight: 5, opacity: 0.9 }} />
             )}
             <SmoothMarker
               key={`live-${selectedReg}`}
@@ -1062,7 +1124,7 @@ export default function VTSMap() {
               icon={makeMapMarker(liveCur.vehicleIcon ?? selDev?.vehicleIcon ?? 'car', '#52c41a', true, liveBearing)}
               duration={4500}
             >
-              <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
+              <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={380} maxWidth={520}>
                 <DarkPopup v={liveCur} onCopy={copyCoords} dark={isDark} />
               </Popup>
             </SmoothMarker>
@@ -1070,9 +1132,10 @@ export default function VTSMap() {
 
           {/* Live: all vehicles */}
           {activeTab === 'live' && !selectedReg && (<>
-            {liveAll.filter(v => v.trail?.length > 2).map(v => (
-              <Polyline key={`trail-${v.key}`} positions={v.trail.slice(0, -1)}
-                pathOptions={{ color: STATUS_COLOR[v.status] ?? '#52c41a', weight: 3, opacity: 0.5, dashArray: '8 5' }} />
+            {liveAll.filter(v => v.trail?.length >= 2).map(v => (
+              <Polyline key={`trail-${v.key}`}
+                positions={v.trail.length >= 3 ? v.trail.slice(0, -1) : v.trail}
+                pathOptions={{ color: STATUS_COLOR[v.status] ?? '#52c41a', weight: 3, opacity: 0.65 }} />
             ))}
             {liveAll.map(v => (
               <SmoothMarker
@@ -1083,7 +1146,7 @@ export default function VTSMap() {
                 duration={4500}
                 eventHandlers={{ click: () => onSelect(v.vehicle) }}
               >
-                <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
+                <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={380} maxWidth={520}>
                   <DarkPopup v={v} onCopy={copyCoords} dark={isDark} />
                 </Popup>
               </SmoothMarker>
