@@ -2,7 +2,7 @@ import {
   AimOutlined, CarOutlined, CloseOutlined, CopyOutlined,
   DashboardOutlined, EnvironmentOutlined, HistoryOutlined,
   MobileOutlined, PauseOutlined, PlayCircleOutlined,
-  ReloadOutlined, SearchOutlined, ThunderboltOutlined,
+  ReloadOutlined, SearchOutlined, SettingOutlined, ThunderboltOutlined,
 } from '@ant-design/icons';
 import { Button, DatePicker, Input, Progress, Select, Segmented, Spin, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
@@ -35,10 +35,8 @@ const TILES = {
   dark:      { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', label: 'Dark' },
 };
 
-const STATUS_COLOR = { moving: '#52c41a', parked: '#fa8c16', idle: '#1677ff' };
-
 /* ── Popup card — module scope, theme-aware ──────────────────────── */
-function DarkPopup({ v, onCopy, dark = true }) {
+function DarkPopup({ v, onCopy, dark = true, colors = {} }) {
   const [copied, setCopied] = useState(false);
   const [now, setNow]       = useState(() => new Date());
 
@@ -56,8 +54,11 @@ function DarkPopup({ v, onCopy, dark = true }) {
   const spdNum = typeof v?.speed === 'number' ? v.speed : parseFloat(v?.speed) || 0;
   const speed  = Math.round(spdNum);
   const status = v?.status ?? 'moving';
-  const statusColor = { moving: '#52c41a', running: '#52c41a', parked: '#fa8c16', idle: '#1677ff' }[status] ?? '#52c41a';
-  const statusLabel = { moving: 'Running', running: 'Running', parked: 'Parked',  idle: 'Idle'    }[status] ?? 'Running';
+  const onC    = colors.on   || '#52c41a';
+  const offC   = colors.off  || '#fa8c16';
+  const idleC  = colors.idle || '#1677ff';
+  const statusColor = { moving: onC, running: onC, parked: offC, idle: idleC }[status] ?? onC;
+  const statusLabel = { moving: 'Running', running: 'Running', parked: 'Parked', idle: 'Idle' }[status] ?? 'Running';
   const isPulsing   = status === 'moving' || status === 'running';
   const spdPct      = Math.min((spdNum / 120) * 100, 100);
 
@@ -182,22 +183,25 @@ function ResizeHandler({ trigger }) {
 }
 
 /* ── History point popup — module scope to avoid reconciler crash ── */
-function HistoryPointPopup({ p, i, dark = true }) {
-  const textPri   = dark ? '#e6edf3' : '#1f2937';
-  const textSec   = dark ? '#8b949e' : '#6b7280';
-  const bg        = dark ? '#161b22' : '#ffffff';
-  const cardBg    = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
-  const divLine   = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+function HistoryPointPopup({ p, i, dark = true, colors = {} }) {
+  const textPri    = dark ? '#e6edf3' : '#1f2937';
+  const textSec    = dark ? '#8b949e' : '#6b7280';
+  const bg         = dark ? '#161b22' : '#ffffff';
+  const cardBg     = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+  const divLine    = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
   const gaugeTrack = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
 
-  const engineOn  = p.engineStatus === 'running';
-  const spd       = parseFloat(p.speed) || 0;
-  const spdColor  = spd > 80 ? '#ff4d4f' : spd > 40 ? '#fa8c16' : '#52c41a';
-  const spdPct    = Math.min((spd / 120) * 100, 100);
+  const onC      = colors.on  || '#52c41a';
+  const offC     = colors.off || '#fa8c16';
+  const engineOn = p.engineStatus === 'running';
+  const engColor = engineOn ? onC : offC;
+  const spd      = parseFloat(p.speed) || 0;
+  const spdColor = spd > 80 ? '#ff4d4f' : spd > 40 ? '#fa8c16' : onC;
+  const spdPct   = Math.min((spd / 120) * 100, 100);
 
   const headerGrad = engineOn
-    ? 'linear-gradient(135deg, #065f2c 0%, #16a34a 100%)'
-    : 'linear-gradient(135deg, #92400e 0%, #d97706 100%)';
+    ? `linear-gradient(135deg, ${onC}bb 0%, ${onC} 100%)`
+    : `linear-gradient(135deg, ${offC}bb 0%, ${offC} 100%)`;
 
   return (
     <div style={{ width: 300, fontFamily: 'system-ui,-apple-system,sans-serif', background: bg, borderRadius: 12, overflow: 'hidden' }}>
@@ -414,6 +418,14 @@ export default function VTSMap() {
 
   const [liveBearing, setLiveBearing] = useState(0);
 
+  /* Engine-state colours (persisted to localStorage) */
+  const [vColor, setVColor] = useState(() => ({
+    on:   localStorage.getItem('vts_c_on')   || '#52c41a',
+    off:  localStorage.getItem('vts_c_off')  || '#fa8c16',
+    idle: localStorage.getItem('vts_c_idle') || '#1677ff',
+  }));
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const timerRef       = useRef(null);
   const playRef        = useRef(null);
   const prevLivePosRef = useRef(null);
@@ -566,6 +578,23 @@ export default function VTSMap() {
     return () => clearTimeout(geoTimerRef.current);
   }, [histData, playIdx]); // eslint-disable-line
 
+  /* Pan map to keep vehicle in view during history playback */
+  useEffect(() => {
+    if (!leafletMap || !playing || activeTab !== 'history') return;
+    const pt = histData?.trackPoints?.[playIdx];
+    if (!pt) return;
+    try {
+      if (!leafletMap.getBounds().contains([pt.lat, pt.lng])) {
+        leafletMap.panTo([pt.lat, pt.lng], { animate: true, duration: 0.4 });
+      }
+    } catch {}
+  }, [playIdx, histData, leafletMap, activeTab, playing]); // eslint-disable-line
+
+  function saveColor(key, val) {
+    localStorage.setItem(`vts_c_${key}`, val);
+    setVColor(c => ({ ...c, [key]: val }));
+  }
+
   function copyCoords(lat, lng) {
     navigator.clipboard?.writeText(`${lat}, ${lng}`);
     message.success('Coordinates copied');
@@ -613,6 +642,9 @@ export default function VTSMap() {
   /* ══════════════════════════════════════════════════════════════
      RENDER
   ══════════════════════════════════════════════════════════════ */
+  /* Dynamic colour map driven by user settings */
+  const statusColorMap = { moving: vColor.on, parked: vColor.off, idle: vColor.idle };
+
   const isDark   = mapLayer === 'dark';
   const panelBg  = isDark ? '#0d1117' : '#ffffff';
   const panelBg2 = isDark ? '#161b22' : '#f4f6f8';
@@ -662,9 +694,22 @@ export default function VTSMap() {
                 <span style={{ fontSize: 10, color: '#52c41a', fontWeight: 600 }}>LIVE TRACKING</span>
               </div>
             </div>
-            {autoRefresh && (
-              <div style={{ marginLeft: 'auto', fontSize: 10, color: textSec }}>⟳ 5s</div>
-            )}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {autoRefresh && <div style={{ fontSize: 10, color: textSec }}>⟳ 5s</div>}
+              <button
+                onClick={() => setSettingsOpen(v => !v)}
+                title="Settings"
+                style={{
+                  background: settingsOpen ? `${accent}22` : 'none',
+                  border: settingsOpen ? `1px solid ${accent}55` : '1px solid transparent',
+                  borderRadius: 7, width: 28, height: 28, cursor: 'pointer',
+                  color: settingsOpen ? accent : textSec, fontSize: 14,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.2s',
+                }}>
+                <SettingOutlined />
+              </button>
+            </div>
           </div>
 
           {/* Stats row */}
@@ -700,8 +745,62 @@ export default function VTSMap() {
           />
         </div>
 
+        {/* ── Settings Panel ────────────────────────────────────── */}
+        {settingsOpen && (
+          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: textPri, letterSpacing: '0.06em', marginBottom: 16 }}>
+              VEHICLE STATE COLORS
+            </div>
+
+            {[
+              { key: 'on',   label: 'ENGINE ON',        sub: 'Moving / Running',     icon: '🟢' },
+              { key: 'off',  label: 'ENGINE OFF',       sub: 'Parked / Stopped',     icon: '🟠' },
+              { key: 'idle', label: 'IDLE',             sub: 'Stationary, engine on', icon: '🔵' },
+            ].map(({ key, label, sub }) => (
+              <div key={key} style={{
+                background: panelBg2, border: `1px solid ${border}`,
+                borderRadius: 10, padding: '12px 14px', marginBottom: 10,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                    background: vColor[key], display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', boxShadow: `0 2px 8px ${vColor[key]}55`,
+                  }}>
+                    <CarOutlined style={{ color: '#fff', fontSize: 15 }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: textPri, letterSpacing: '0.05em' }}>{label}</div>
+                    <div style={{ fontSize: 9, color: textSec, marginTop: 1 }}>{sub}</div>
+                  </div>
+                </div>
+                <input
+                  type="color"
+                  value={vColor[key]}
+                  onChange={e => saveColor(key, e.target.value)}
+                  style={{
+                    width: 34, height: 34, borderRadius: 8, border: `1px solid ${border}`,
+                    background: 'none', cursor: 'pointer', padding: 2,
+                  }}
+                />
+              </div>
+            ))}
+
+            <button
+              onClick={() => { saveColor('on', '#52c41a'); saveColor('off', '#fa8c16'); saveColor('idle', '#1677ff'); }}
+              style={{
+                width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${border}`,
+                borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: textSec,
+                fontSize: 11, fontWeight: 600, marginTop: 6,
+              }}>
+              Reset to Defaults
+            </button>
+          </div>
+        )}
+
         {/* ── Vehicle List / Selected Details ───────────────────── */}
-        {!selectedReg ? (
+        {!settingsOpen && !selectedReg ? (
           /* Fleet List */
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {loading && (
@@ -757,7 +856,7 @@ export default function VTSMap() {
               </div>
             )}
           </div>
-        ) : (
+        ) : !settingsOpen ? (
           /* Selected Vehicle Details */
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Back + Vehicle header */}
@@ -1101,7 +1200,7 @@ export default function VTSMap() {
               )}
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* ── Bottom refresh bar ────────────────────────────────── */}
         <div style={{
@@ -1286,17 +1385,17 @@ export default function VTSMap() {
             {liveCur.trail?.length >= 2 && (
               <Polyline
                 positions={liveCur.trail.length >= 3 ? liveCur.trail.slice(0, -1) : liveCur.trail}
-                pathOptions={{ color: '#52c41a', weight: 5, opacity: 0.9 }} />
+                pathOptions={{ color: vColor.on, weight: 5, opacity: 0.9 }} />
             )}
             <SmoothMarker
               key={`live-${selectedReg}`}
               position={[liveCur.lat, liveCur.lng]}
               heading={liveBearing}
-              icon={makeMapMarker(liveCur.vehicleIcon ?? selDev?.vehicleIcon ?? 'car', '#52c41a', true)}
+              icon={makeMapMarker(liveCur.vehicleIcon ?? selDev?.vehicleIcon ?? 'car', vColor.on, true)}
               duration={4500}
             >
               <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={460} maxWidth={560}>
-                <DarkPopup v={liveCur} onCopy={copyCoords} dark={isDark} />
+                <DarkPopup v={liveCur} onCopy={copyCoords} dark={isDark} colors={vColor} />
               </Popup>
             </SmoothMarker>
           </>)}
@@ -1306,19 +1405,19 @@ export default function VTSMap() {
             {liveAll.filter(v => v.trail?.length >= 2).map(v => (
               <Polyline key={`trail-${v.key}`}
                 positions={v.trail.length >= 3 ? v.trail.slice(0, -1) : v.trail}
-                pathOptions={{ color: STATUS_COLOR[v.status] ?? '#52c41a', weight: 3, opacity: 0.65 }} />
+                pathOptions={{ color: statusColorMap[v.status] ?? vColor.on, weight: 3, opacity: 0.65 }} />
             ))}
             {liveAll.map(v => (
               <SmoothMarker
                 key={v.key}
                 position={[v.lat, v.lng]}
                 heading={trailBearing(v.trail)}
-                icon={makeMapMarker(v.vehicleIcon ?? 'car', STATUS_COLOR[v.status] ?? '#52c41a', false)}
+                icon={makeMapMarker(v.vehicleIcon ?? 'car', statusColorMap[v.status] ?? vColor.on, false)}
                 duration={4500}
                 eventHandlers={{ click: () => onSelect(v.vehicle) }}
               >
                 <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={460} maxWidth={560}>
-                  <DarkPopup v={v} onCopy={copyCoords} dark={isDark} />
+                  <DarkPopup v={v} onCopy={copyCoords} dark={isDark} colors={vColor} />
                 </Popup>
               </SmoothMarker>
             ))}
@@ -1327,23 +1426,23 @@ export default function VTSMap() {
           {/* History route */}
           {activeTab === 'history' && trackPts.length > 0 && (<>
 
-            {/* Remaining path — blue dashed */}
+            {/* Remaining path — blue dashed (from current point onward) */}
             <Polyline
               key={`hist-remain-${selectedReg}`}
-              positions={trackPts.slice(Math.max(0, playIdx)).map(p => [p.lat, p.lng])}
-              pathOptions={{ color: '#1677ff', weight: 3, opacity: 0.45, dashArray: '10 7' }} />
+              positions={trackPts.slice(playIdx).map(p => [p.lat, p.lng])}
+              pathOptions={{ color: '#1677ff', weight: 3, opacity: 0.40, dashArray: '10 7' }} />
 
-            {/* Traveled path — green solid (only after first move) */}
+            {/* Traveled path — vehicle color solid (lags one step so vehicle leads) */}
             {playIdx > 0 && (
               <Polyline
                 key={`hist-traveled-${selectedReg}`}
-                positions={trackPts.slice(0, playIdx + 1).map(p => [p.lat, p.lng])}
-                pathOptions={{ color: '#52c41a', weight: 4, opacity: 0.9 }} />
+                positions={trackPts.slice(0, playIdx).map(p => [p.lat, p.lng])}
+                pathOptions={{ color: vColor.on, weight: 4, opacity: 0.9 }} />
             )}
 
-            {/* Start marker — green circle */}
+            {/* Start marker — engine-on color circle */}
             <CircleMarker center={[trackPts[0].lat, trackPts[0].lng]} radius={8}
-              pathOptions={{ color: '#fff', fillColor: '#52c41a', fillOpacity: 1, weight: 2 }}>
+              pathOptions={{ color: '#fff', fillColor: vColor.on, fillOpacity: 1, weight: 2 }}>
               <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
                 <div style={{
                   minWidth: 300, fontFamily: 'system-ui,-apple-system,sans-serif',
@@ -1412,9 +1511,9 @@ export default function VTSMap() {
             {/* Engine-off stop markers (sparse, capped at 40) */}
             {stopMarkers.map((p, i) => (
               <CircleMarker key={`stop-${i}`} center={[p.lat, p.lng]} radius={4}
-                pathOptions={{ color: '#fa8c16', fillColor: '#fa8c16', fillOpacity: 0.85, weight: 1 }}>
+                pathOptions={{ color: vColor.off, fillColor: vColor.off, fillOpacity: 0.85, weight: 1 }}>
                 <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
-                  <HistoryPointPopup p={p} i={p.origIdx} dark={isDark} />
+                  <HistoryPointPopup p={p} i={p.origIdx} dark={isDark} colors={vColor} />
                 </Popup>
               </CircleMarker>
             ))}
@@ -1427,7 +1526,7 @@ export default function VTSMap() {
                 heading={histBearing}
                 icon={makeMapMarker(
                   selDev?.vehicleIcon ?? 'car',
-                  curPt.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
+                  curPt.engineStatus === 'running' ? vColor.on : vColor.off,
                   true
                 )}
                 duration={Math.max(playSpeed * 0.85, 15)}
@@ -1437,6 +1536,7 @@ export default function VTSMap() {
                     p={{ ...curPt, location: liveGeoLoc || curPt.location }}
                     i={playIdx}
                     dark={isDark}
+                    colors={vColor}
                   />
                 </Popup>
               </SmoothMarker>

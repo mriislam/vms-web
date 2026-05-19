@@ -106,8 +106,8 @@ export function makeMapMarker(iconKey = 'car', color = '#52c41a', selected = fal
   const sz   = selected ? 42 : 34;
   const half = sz / 2;
   const shadow = selected
-    ? `drop-shadow(0 0 7px ${color}) drop-shadow(0 3px 10px rgba(0,0,0,.65))`
-    : `drop-shadow(0 2px 6px rgba(0,0,0,.55))`;
+    ? `drop-shadow(0 4px 14px rgba(0,0,0,0.65)) drop-shadow(0 1px 4px rgba(0,0,0,0.35))`
+    : `drop-shadow(0 2px 6px rgba(0,0,0,.50))`;
   return L.divIcon({
     className: '',
     html: `<div style="position:relative;width:${sz}px;height:${sz}px;will-change:transform;transform-origin:center center">
