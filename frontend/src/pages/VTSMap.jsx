@@ -1065,16 +1065,18 @@ export default function VTSMap() {
         {/* Layer switcher + zoom buttons (stacked in top-right) */}
         <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <div style={{
-            background: 'rgba(13,17,23,0.88)', backdropFilter: 'blur(8px)',
+            background: isDark ? 'rgba(13,17,23,0.90)' : 'rgba(255,255,255,0.94)',
+            backdropFilter: 'blur(8px)',
             border: `1px solid ${border}`, borderRadius: 10, padding: '3px 4px',
             display: 'flex', gap: 2,
+            boxShadow: isDark ? 'none' : '0 2px 12px rgba(0,0,0,0.12)',
           }}>
             {Object.entries(TILES).map(([k, v]) => (
               <button key={k} onClick={() => setMapLayer(k)}
                 style={{
                   background: mapLayer === k ? accent : 'transparent',
                   border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer',
-                  color: mapLayer === k ? '#fff' : '#e6edf3', fontSize: 10, fontWeight: 600,
+                  color: mapLayer === k ? '#fff' : textPri, fontSize: 10, fontWeight: 600,
                   transition: 'all 0.2s',
                 }}>
                 {v.label}
@@ -1086,14 +1088,21 @@ export default function VTSMap() {
             {[{ label: '+', fn: () => leafletMap?.zoomIn() }, { label: '−', fn: () => leafletMap?.zoomOut() }].map(z => (
               <button key={z.label} onClick={z.fn}
                 style={{
-                  width: 34, height: 34, background: 'rgba(13,17,23,0.88)', backdropFilter: 'blur(8px)',
+                  width: 34, height: 34,
+                  background: isDark ? 'rgba(13,17,23,0.90)' : 'rgba(255,255,255,0.94)',
+                  backdropFilter: 'blur(8px)',
                   border: `1px solid ${border}`, borderRadius: 8, cursor: 'pointer',
-                  color: '#e6edf3', fontSize: 18, fontWeight: 300, lineHeight: 1,
+                  color: textPri, fontSize: 18, fontWeight: 300, lineHeight: 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'background 0.15s',
+                  boxShadow: isDark ? 'none' : '0 2px 8px rgba(0,0,0,0.10)',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = accent; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(13,17,23,0.88)'; }}
+                onMouseEnter={e => { e.currentTarget.style.background = accent; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = accent; }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = isDark ? 'rgba(13,17,23,0.90)' : 'rgba(255,255,255,0.94)';
+                  e.currentTarget.style.color = textPri;
+                  e.currentTarget.style.borderColor = border;
+                }}
               >{z.label}</button>
             ))}
           </div>
@@ -1102,9 +1111,11 @@ export default function VTSMap() {
         {/* Live status overlay */}
         <div style={{
           position: 'absolute', top: 12, left: 12, zIndex: 1000,
-          background: 'rgba(13,17,23,0.88)', backdropFilter: 'blur(8px)',
+          background: isDark ? 'rgba(13,17,23,0.90)' : 'rgba(255,255,255,0.94)',
+          backdropFilter: 'blur(8px)',
           border: `1px solid ${border}`, borderRadius: 10, padding: '6px 12px',
           display: 'flex', alignItems: 'center', gap: 8,
+          boxShadow: isDark ? 'none' : '0 2px 10px rgba(0,0,0,0.10)',
         }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#52c41a', boxShadow: '0 0 8px #52c41a' }} />
           <span style={{ fontSize: 11, fontWeight: 600, color: '#52c41a' }}>
@@ -1112,7 +1123,7 @@ export default function VTSMap() {
           </span>
           {selectedReg && activeTab === 'live' && liveCur && (
             <>
-              <span style={{ color: border, fontSize: 10 }}>|</span>
+              <span style={{ color: textSec, fontSize: 10 }}>|</span>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#52c41a' }}>
                 {typeof liveCur.speed === 'number' ? liveCur.speed.toFixed(1) : liveCur.speed} km/h
               </span>
@@ -1125,15 +1136,17 @@ export default function VTSMap() {
           <div style={{
             position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
             zIndex: 1000, display: 'flex', gap: 0, overflow: 'hidden',
-            background: 'rgba(13,17,23,0.92)', backdropFilter: 'blur(8px)',
+            background: isDark ? 'rgba(13,17,23,0.92)' : 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(8px)',
             border: `1px solid ${border}`, borderRadius: 12,
+            boxShadow: isDark ? '0 4px 24px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.12)',
           }}>
             {[
-              { label: 'TOTAL',   value: `${histData.totalKm} km`,              color: accent },
-              { label: 'TRAVELED', value: `${histData.traveledKm} km`,           color: '#52c41a' },
-              { label: 'SPEED',   value: curPt ? `${curPt.speed} km/h` : '—',   color: curPt && curPt.speed > 0 ? '#52c41a' : textSec },
-              { label: 'POINTS',  value: trackPts.length,                        color: '#fa8c16' },
-              { label: 'POINT',   value: `${playIdx + 1} / ${trackPts.length}`,  color: textSec },
+              { label: 'TOTAL',    value: `${histData.totalKm} km`,             color: accent },
+              { label: 'TRAVELED', value: `${histData.traveledKm} km`,          color: '#52c41a' },
+              { label: 'SPEED',    value: curPt ? `${curPt.speed} km/h` : '—',  color: curPt && curPt.speed > 0 ? '#52c41a' : textSec },
+              { label: 'POINTS',   value: trackPts.length,                       color: '#fa8c16' },
+              { label: 'POINT',    value: `${playIdx + 1} / ${trackPts.length}`, color: textSec },
             ].map((s, i) => (
               <div key={s.label} style={{
                 padding: '8px 16px', textAlign: 'center',
