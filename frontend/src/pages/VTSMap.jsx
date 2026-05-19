@@ -1,23 +1,18 @@
 import {
-  CarOutlined, CloseOutlined, EnvironmentOutlined,
-  HistoryOutlined, MobileOutlined, PauseOutlined,
-  PlayCircleOutlined, ReloadOutlined, SearchOutlined,
-  ThunderboltOutlined,
+  AimOutlined, CarOutlined, CloseOutlined, CopyOutlined,
+  DashboardOutlined, EnvironmentOutlined, HistoryOutlined,
+  MobileOutlined, PauseOutlined, PlayCircleOutlined,
+  ReloadOutlined, SearchOutlined, ThunderboltOutlined,
 } from '@ant-design/icons';
-import {
-  Badge, Button, Card, Col, DatePicker, Descriptions,
-  Progress, Row, Select, Segmented, Spin, Table, Tag, Typography,
-} from 'antd';
+import { Button, DatePicker, Input, Progress, Select, Segmented, Spin, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import L from 'leaflet';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
-import PageHeader from '../components/PageHeader';
 import { vtsService } from '../services/vtsService';
 
 const { Text } = Typography;
 
-/* ── Leaflet default icon fix ───────────────────────────────────── */
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -25,13 +20,14 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-/* ── Solid vehicle icon: filled disc + top-down car silhouette ─── */
+/* ── Vehicle icon ───────────────────────────────────────────────── */
 function makeVehicleIcon(color = '#52c41a', selected = false) {
-  const sz = selected ? 38 : 32;
+  const sz = selected ? 40 : 32;
   const half = sz / 2;
+  const glow = selected ? `filter:drop-shadow(0 0 8px ${color});` : '';
   const pulse = selected
-    ? `<div style="position:absolute;inset:-7px;border-radius:50%;border:3px solid ${color};
-         opacity:.55;animation:vtsPulse 1.3s ease-out infinite;pointer-events:none"></div>`
+    ? `<div style="position:absolute;inset:-8px;border-radius:50%;border:2.5px solid ${color};
+         opacity:.6;animation:vtsPulse 1.4s ease-out infinite;pointer-events:none"></div>`
     : '';
   return L.divIcon({
     className: '',
@@ -39,92 +35,109 @@ function makeVehicleIcon(color = '#52c41a', selected = false) {
       ${pulse}
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"
            width="${sz}" height="${sz}"
-           style="filter:drop-shadow(0 2px 7px rgba(0,0,0,.6));display:block">
-        <!-- Solid disc background -->
-        <circle cx="16" cy="16" r="15" fill="${color}" stroke="rgba(255,255,255,0.92)" stroke-width="2"/>
-        <!-- White car body (top-down silhouette) -->
+           style="${glow}filter:drop-shadow(0 3px 8px rgba(0,0,0,.7));display:block">
+        <circle cx="16" cy="16" r="15" fill="${color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.8"/>
         <path fill="white" d="M21.5 7.5 Q23 7.5 23.5 9.5 L24.5 15 L24.5 22.5
           Q24.5 24.5 22.5 24.5 L9.5 24.5 Q7.5 24.5 7.5 22.5 L7.5 15
           L8.5 9.5 Q9 7.5 10.5 7.5 Z"/>
-        <!-- Windshield (glass slot at front) -->
-        <rect fill="${color}" opacity="0.5" x="10" y="10.5" width="12" height="4" rx="1.5"/>
-        <!-- Rear window -->
-        <rect fill="${color}" opacity="0.5" x="10" y="20.5" width="12" height="3" rx="1.5"/>
+        <rect fill="${color}" opacity="0.55" x="10" y="10.5" width="12" height="4" rx="1.5"/>
+        <rect fill="${color}" opacity="0.55" x="10" y="20.5" width="12" height="3" rx="1.5"/>
       </svg>
     </div>`,
     iconSize:    [sz, sz],
     iconAnchor:  [half, half],
-    popupAnchor: [0, -(half + 4)],
+    popupAnchor: [0, -(half + 6)],
   });
 }
 
-/* ── Tile layers ────────────────────────────────────────────────── */
 const TILES = {
-  osm:       { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', label: 'Street' },
-  google:    { url: 'https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}', attribution: '&copy; Google Maps', label: 'Google' },
-  satellite: { url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', attribution: '&copy; Google Maps', label: 'Satellite' },
+  osm:       { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',    label: 'Street' },
+  google:    { url: 'https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}',   label: 'Google' },
+  satellite: { url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',   label: 'Satellite' },
+  dark:      { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', label: 'Dark' },
 };
 
-const VEH_COLOR = { moving: '#52c41a', parked: '#1677ff', idle: '#fa8c16' };
+const STATUS_COLOR = { moving: '#52c41a', parked: '#fa8c16', idle: '#1677ff' };
 
-/* ── Map helpers ────────────────────────────────────────────────── */
-function FlyTo({ lat, lng, zoom = 13 }) {
+function FlyTo({ lat, lng, zoom = 14 }) {
   const map = useMap();
-  useEffect(() => { if (lat && lng) map.flyTo([lat, lng], zoom, { duration: 0.9 }); }, [lat, lng]); // eslint-disable-line
+  useEffect(() => { if (lat && lng) map.flyTo([lat, lng], zoom, { duration: 1 }); }, [lat, lng]); // eslint-disable-line
   return null;
 }
 function FitBounds({ points }) {
   const map = useMap();
   useEffect(() => {
-    if (points?.length > 1)
-      map.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lng])), { padding: [40, 40] });
+    if (points?.length > 1) map.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lng])), { padding: [50, 50] });
   }, [points]); // eslint-disable-line
   return null;
 }
 function ResizeHandler({ trigger }) {
   const map = useMap();
-  useEffect(() => { const t = setTimeout(() => map.invalidateSize(), 80); return () => clearTimeout(t); }, [trigger]); // eslint-disable-line
+  useEffect(() => { const t = setTimeout(() => map.invalidateSize(), 100); return () => clearTimeout(t); }, [trigger]); // eslint-disable-line
   return null;
 }
+
+/* ── Dark popup style injected once ─────────────────────────────── */
+const DARK_POPUP_CSS = `
+  .dark-popup .leaflet-popup-content-wrapper {
+    background: #0d1117; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px; padding: 0; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+  .dark-popup .leaflet-popup-content { margin: 0; }
+  .dark-popup .leaflet-popup-tip { background: #0d1117; }
+  .dark-popup .leaflet-popup-close-button { color: rgba(255,255,255,0.5) !important; top: 6px !important; right: 6px !important; }
+`;
 
 /* ══════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════ */
 export default function VTSMap() {
-  const [devices,       setDevices]       = useState([]);
-  const [liveAll,       setLiveAll]       = useState([]);
-  const [selectedReg,   setSelectedReg]   = useState(null);
-  const [liveOne,       setLiveOne]       = useState(null);
-  const [activeTab,     setActiveTab]     = useState('live');
-  const [mapLayer,      setMapLayer]      = useState('osm');
-  const [autoRefresh,   setAutoRefresh]   = useState(true);
-  const [intervalSec]                     = useState(5);
-  const [loading,       setLoading]       = useState(true);
+  const [devices,     setDevices]     = useState([]);
+  const [liveAll,     setLiveAll]     = useState([]);
+  const [selectedReg, setSelectedReg] = useState(null);
+  const [liveOne,     setLiveOne]     = useState(null);
+  const [activeTab,   setActiveTab]   = useState('live');
+  const [mapLayer,    setMapLayer]    = useState('dark');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [loading,     setLoading]     = useState(true);
+  const [search,      setSearch]      = useState('');
+  const [copied,      setCopied]      = useState(false);
 
-  // History
-  const [histPeriod,    setHistPeriod]    = useState('today');
-  const [histDate,      setHistDate]      = useState(null);
-  const [histFrom,      setHistFrom]      = useState(null);
-  const [histTo,        setHistTo]        = useState(null);
-  const [histData,      setHistData]      = useState(null);
-  const [histLoading,   setHistLoading]   = useState(false);
-  const [playIdx,       setPlayIdx]       = useState(0);
-  const [playing,       setPlaying]       = useState(false);
-  const [playSpeed,     setPlaySpeed]     = useState(200);
-  const [dispMode,      setDispMode]      = useState('Markers');
+  const [histPeriod,  setHistPeriod]  = useState('today');
+  const [histDate,    setHistDate]    = useState(null);
+  const [histFrom,    setHistFrom]    = useState(null);
+  const [histTo,      setHistTo]      = useState(null);
+  const [histData,    setHistData]    = useState(null);
+  const [histLoading, setHistLoading] = useState(false);
+  const [playIdx,     setPlayIdx]     = useState(0);
+  const [playing,     setPlaying]     = useState(false);
+  const [playSpeed,   setPlaySpeed]   = useState(200);
+  const [dispMode,    setDispMode]    = useState('Markers');
 
-  const timerRef   = useRef(null);
-  const playRef    = useRef(null);
+  const timerRef = useRef(null);
+  const playRef  = useRef(null);
 
-  /* ── load devices ────────────────────────────────────────────── */
+  /* inject dark popup CSS once */
+  useEffect(() => {
+    if (!document.getElementById('vts-dark-popup-css')) {
+      const s = document.createElement('style');
+      s.id = 'vts-dark-popup-css';
+      s.textContent = DARK_POPUP_CSS;
+      document.head.appendChild(s);
+    }
+  }, []);
+
   useEffect(() => {
     vtsService.getDevices().then(r => setDevices(r.data.data ?? [])).catch(() => {});
   }, []);
 
-  /* ── live data ───────────────────────────────────────────────── */
   const fetchAll = useCallback(async () => {
-    try { const r = await vtsService.getLive(); setLiveAll(r.data.data ?? []); } catch {}
-    finally { setLoading(false); }
+    try { const r = await vtsService.getLive(); setLiveAll(r.data.data ?? []); }
+    catch {} finally { setLoading(false); }
+  }, []);
+
+  const fetchOne = useCallback(async (reg) => {
+    try { const r = await vtsService.getLiveOne(reg); setLiveOne(r.data.data); } catch {}
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -135,16 +148,11 @@ export default function VTSMap() {
       timerRef.current = setInterval(() => {
         fetchAll();
         if (selectedReg) fetchOne(selectedReg);
-      }, intervalSec * 1000);
+      }, 5000);
     }
     return () => clearInterval(timerRef.current);
-  }, [autoRefresh, intervalSec, activeTab, selectedReg, fetchAll]); // eslint-disable-line
+  }, [autoRefresh, activeTab, selectedReg, fetchAll, fetchOne]);
 
-  const fetchOne = useCallback(async (reg) => {
-    try { const r = await vtsService.getLiveOne(reg); setLiveOne(r.data.data); } catch {}
-  }, []);
-
-  /* ── vehicle select ──────────────────────────────────────────── */
   function onSelect(reg) {
     setSelectedReg(reg);
     setActiveTab('live');
@@ -156,13 +164,9 @@ export default function VTSMap() {
     else setLiveOne(null);
   }
 
-  /* ── history ─────────────────────────────────────────────────── */
   async function fetchHistory() {
     if (!selectedReg) return;
-    setHistLoading(true);
-    setPlaying(false);
-    setPlayIdx(0);
-    clearInterval(playRef.current);
+    setHistLoading(true); setPlaying(false); setPlayIdx(0); clearInterval(playRef.current);
     try {
       const p = { period: histPeriod };
       if (histPeriod === 'specific' && histDate) p.date = histDate.format('YYYY-MM-DD');
@@ -172,11 +176,9 @@ export default function VTSMap() {
       }
       const r = await vtsService.getHistory(selectedReg, p);
       setHistData(r.data.data);
-    } catch {}
-    finally { setHistLoading(false); }
+    } catch {} finally { setHistLoading(false); }
   }
 
-  /* ── playback ────────────────────────────────────────────────── */
   function togglePlay() {
     const pts = histData?.trackPoints ?? [];
     if (!pts.length) return;
@@ -206,659 +208,776 @@ export default function VTSMap() {
 
   useEffect(() => () => { clearInterval(playRef.current); }, []);
 
-  /* ── derived ─────────────────────────────────────────────────── */
-  const selDev      = devices.find(d => d.vehicleReg === selectedReg);
-  const liveCur     = liveOne ?? liveAll.find(v => v.vehicle === selectedReg);
-  const trackPts    = histData?.trackPoints ?? [];
-  const curPt       = trackPts[playIdx];
-  const moving      = liveAll.filter(v => v.status === 'moving').length;
-  const parked      = liveAll.filter(v => v.status === 'parked').length;
-  const idle        = liveAll.filter(v => v.status === 'idle').length;
-  const splitLayout = activeTab === 'history' && !!selectedReg;
-  const showMap     = activeTab !== 'vehicle-info' && activeTab !== 'device-info';
+  function copyCoords(lat, lng) {
+    navigator.clipboard?.writeText(`${lat}, ${lng}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+    message.success('Coordinates copied');
+  }
 
-  const dropdownOpts = devices.map(d => ({
-    value: d.vehicleReg,
-    label: (
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span><CarOutlined style={{ marginRight: 6, color: '#1677ff' }} /><strong>{d.vehicleReg}</strong>{d.vehicleMake ? ` · ${d.vehicleMake}` : ''}</span>
-        <span style={{ fontSize: 10, color: d.isActive ? '#52c41a' : '#fa8c16' }}>
-          {d.isActive ? '● LIVE' : '○ Parked'}
-        </span>
+  /* derived */
+  const selDev   = devices.find(d => d.vehicleReg === selectedReg);
+  const liveCur  = liveOne ?? liveAll.find(v => v.vehicle === selectedReg);
+  const trackPts = histData?.trackPoints ?? [];
+  const curPt    = trackPts[playIdx];
+  const moving   = liveAll.filter(v => v.status === 'moving').length;
+  const totalVeh = devices.length;
+
+  const filteredDevices = devices.filter(d => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return d.vehicleReg?.toLowerCase().includes(q)
+      || d.vehicleMake?.toLowerCase().includes(q)
+      || d.imei?.includes(q) || d.msisdn?.includes(q);
+  });
+
+  const showHistory = activeTab === 'history' && !!selectedReg;
+
+  /* ── Popup card (dark theme) ──────────────────────────────────── */
+  function DarkPopup({ v, isSelected = false }) {
+    const speed = typeof v.speed === 'number' ? v.speed.toFixed(2) : v.speed ?? '0.00';
+    return (
+      <div style={{ minWidth: 300, fontFamily: 'inherit', color: '#e6edf3' }}>
+        {/* Header */}
+        <div style={{
+          padding: '10px 14px 8px',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        }}>
+          <div>
+            <div style={{ fontSize: 10, color: '#58a6ff', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 2 }}>VEHICLE</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>{v.vehicle}</div>
+            {v.positionTime && (
+              <div style={{ fontSize: 10, color: '#8b949e', marginTop: 2 }}>{v.positionTime}</div>
+            )}
+          </div>
+          <div style={{
+            background: 'rgba(82,196,26,0.15)', border: '1px solid rgba(82,196,26,0.4)',
+            borderRadius: 20, padding: '3px 10px', display: 'flex', alignItems: 'center', gap: 5,
+          }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#52c41a', animation: 'vtsPulse 1.5s ease-out infinite' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#52c41a' }}>RUNNING</span>
+          </div>
+        </div>
+
+        {/* Speed + Position */}
+        <div style={{ display: 'flex', padding: '10px 14px', gap: 14 }}>
+          {/* Speed */}
+          <div style={{
+            background: 'rgba(82,196,26,0.08)', border: '1px solid rgba(82,196,26,0.2)',
+            borderRadius: 10, padding: '8px 14px', minWidth: 90, textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 10, color: '#52c41a', fontWeight: 700, letterSpacing: '0.08em' }}>SPEED</div>
+            <div style={{ fontSize: 30, fontWeight: 900, color: '#52c41a', lineHeight: 1.1 }}>{speed}</div>
+            <div style={{ fontSize: 11, color: '#8b949e' }}>km/h</div>
+            <div style={{ fontSize: 9, color: '#484f58', marginTop: 4 }}>LIMIT 100 km/h</div>
+          </div>
+
+          {/* Position + Location */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: '#8b949e', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>POSITION</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 11, color: '#e6edf3', fontFamily: 'monospace' }}>
+                  {v.lat}, {v.lng}
+                </span>
+                <button
+                  onClick={() => copyCoords(v.lat, v.lng)}
+                  style={{ background: 'rgba(88,166,255,0.15)', border: '1px solid rgba(88,166,255,0.3)',
+                    borderRadius: 4, padding: '1px 6px', cursor: 'pointer', color: '#58a6ff', fontSize: 10 }}>
+                  {copied ? '✓' : '⧉'}
+                </button>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: '#8b949e', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>LOCATION</div>
+              <div style={{ fontSize: 11, color: '#c9d1d9', lineHeight: 1.5 }}>{v.location}</div>
+            </div>
+            {v.driver && (
+              <div style={{ marginTop: 6, fontSize: 11, color: '#8b949e' }}>
+                <span style={{ color: '#58a6ff' }}>Driver: </span>{v.driver}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    ),
-  }));
-
-  const searchFilter = (input, opt) => {
-    const dev = devices.find(d => d.vehicleReg === opt?.value);
-    if (!dev) return false;
-    const q = input.toLowerCase();
-    return (opt.value ?? '').toLowerCase().includes(q)
-      || (dev.imei ?? '').includes(q)
-      || (dev.msisdn ?? '').includes(q)
-      || (dev.clientMobile ?? '').includes(q)
-      || (dev.clientId ?? '').toLowerCase().includes(q);
-  };
-
-  /* ── overlay: history filter on top of map ───────────────────── */
-  const histFilterOverlay = splitLayout && (
-    <div style={{
-      position: 'absolute', top: 10, left: 50, zIndex: 1000,
-      display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap',
-      background: 'rgba(0,0,0,.7)', borderRadius: 8, padding: '5px 8px',
-    }}>
-      <Select value={histPeriod} onChange={setHistPeriod} size="small"
-        style={{ width: 150 }} className="map-layer-switcher"
-        options={[
-          { value: 'today',    label: 'Today' },
-          { value: 'last4h',   label: 'Last 4 Hours' },
-          { value: 'last6h',   label: 'Last 6 Hours' },
-          { value: 'last12h',  label: 'Last 12 Hours' },
-          { value: 'last24h',  label: 'Last 24 Hours' },
-          { value: 'specific', label: 'Specific Date' },
-          { value: 'range',    label: 'Date Range (7d)' },
-        ]}
-      />
-      {histPeriod === 'specific' && (
-        <DatePicker size="small" value={histDate} onChange={setHistDate}
-          style={{ width: 115 }} className="map-layer-switcher" />
-      )}
-      {histPeriod === 'range' && (<>
-        <DatePicker size="small" value={histFrom} onChange={setHistFrom}
-          placeholder="From" style={{ width: 108 }} className="map-layer-switcher"
-          disabledDate={d => d && d.isAfter(dayjs())} />
-        <DatePicker size="small" value={histTo} onChange={setHistTo}
-          placeholder="To" style={{ width: 108 }} className="map-layer-switcher"
-          disabledDate={d => {
-            if (!d || d.isAfter(dayjs())) return true;
-            return histFrom ? d.diff(histFrom, 'day') > 7 : false;
-          }} />
-      </>)}
-      <Button size="small" type="primary" loading={histLoading} icon={<HistoryOutlined />}
-        onClick={fetchHistory} style={{ borderRadius: 6, flexShrink: 0 }}>
-        Show History
-      </Button>
-    </div>
-  );
+    );
+  }
 
   /* ══════════════════════════════════════════════════════════════
      RENDER
   ══════════════════════════════════════════════════════════════ */
-  return (
-    <div>
-      {/* ── Page header ──────────────────────────────────────── */}
-      <PageHeader
-        icon={<EnvironmentOutlined />} color="#eb2f96"
-        title="VTS Map" subtitle="Live vehicle tracking and trip history"
-        stats={[
-          { label: 'Moving', value: moving, color: '#52c41a' },
-          { label: 'Parked', value: parked, color: '#1677ff' },
-          { label: 'Idle',   value: idle,   color: '#fa8c16' },
-        ]}
-      />
+  const panelBg   = '#0d1117';
+  const panelBg2  = '#161b22';
+  const border    = 'rgba(255,255,255,0.08)';
+  const textPri   = '#e6edf3';
+  const textSec   = '#8b949e';
+  const accent    = '#1677ff';
 
-      {/* ── Search bar ───────────────────────────────────────── */}
-      <Card size="small" style={{ borderRadius: 12, marginBottom: 8 }}
-        styles={{ body: { padding: '10px 14px' } }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <SearchOutlined style={{ color: '#8c9ab0', fontSize: 16, flexShrink: 0 }} />
-          <Select showSearch allowClear
-            placeholder="Search by Reg No / IMEI / SIM (MSISDN) / Client Mobile / Client ID"
-            style={{ flex: 1 }} options={dropdownOpts} filterOption={searchFilter}
-            value={selectedReg} onChange={onSelect} size="large" optionLabelProp="value"
-            notFoundContent={<Text type="secondary">No GPS-equipped vehicles found</Text>}
+  return (
+    <div style={{
+      display: 'flex',
+      height: 'calc(100vh - 72px)',
+      borderRadius: 16,
+      overflow: 'hidden',
+      boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+      background: panelBg,
+      border: `1px solid ${border}`,
+    }}>
+
+      {/* ══════════════════════════════════════════════════════════
+         LEFT PANEL — Fleet Commander
+      ══════════════════════════════════════════════════════════ */}
+      <div style={{
+        width: 288, flexShrink: 0, display: 'flex', flexDirection: 'column',
+        background: panelBg, borderRight: `1px solid ${border}`,
+      }}>
+
+        {/* ── Panel Header ──────────────────────────────────────── */}
+        <div style={{
+          padding: '14px 16px 12px',
+          borderBottom: `1px solid ${border}`,
+          background: 'linear-gradient(180deg, #0d1320 0%, #0d1117 100%)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+              background: 'linear-gradient(135deg, #1677ff 0%, #0050b3 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(22,119,255,0.4)',
+            }}>
+              <EnvironmentOutlined style={{ fontSize: 17, color: '#fff' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: textPri, letterSpacing: '-0.02em' }}>VTS Command</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#52c41a', boxShadow: '0 0 6px #52c41a' }} />
+                <span style={{ fontSize: 10, color: '#52c41a', fontWeight: 600 }}>LIVE TRACKING</span>
+              </div>
+            </div>
+            {autoRefresh && (
+              <div style={{ marginLeft: 'auto', fontSize: 10, color: textSec }}>⟳ 5s</div>
+            )}
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[
+              { label: 'Total',   value: totalVeh, color: '#58a6ff', bg: 'rgba(88,166,255,0.1)' },
+              { label: 'Moving',  value: moving,   color: '#52c41a', bg: 'rgba(82,196,26,0.1)' },
+              { label: 'Tracked', value: liveAll.length, color: '#fa8c16', bg: 'rgba(250,140,22,0.1)' },
+            ].map(s => (
+              <div key={s.label} style={{
+                flex: 1, background: s.bg, border: `1px solid ${s.color}25`,
+                borderRadius: 8, padding: '5px 0', textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: 9, color: textSec, marginTop: 2, letterSpacing: '0.06em' }}>{s.label.toUpperCase()}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Search ────────────────────────────────────────────── */}
+        <div style={{ padding: '10px 12px', borderBottom: `1px solid ${border}` }}>
+          <Input
+            placeholder="Search vehicle, IMEI, SIM..."
+            prefix={<SearchOutlined style={{ color: textSec, fontSize: 13 }} />}
+            value={search} onChange={e => setSearch(e.target.value)}
+            size="small"
+            style={{
+              background: panelBg2, border: `1px solid ${border}`,
+              borderRadius: 8, color: textPri, fontSize: 12,
+            }}
+            allowClear
           />
         </div>
-      </Card>
 
-      {/* ── Selected vehicle bar + tabs ──────────────────────── */}
-      {selectedReg && (
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          background: '#fff', borderRadius: 10, padding: '5px 10px 5px 14px',
-          marginBottom: 8, boxShadow: '0 1px 4px rgba(0,0,0,.08)', border: '1px solid #f0f0f0',
-        }}>
-          {/* Left: vehicle + engine + speed */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <CarOutlined style={{ color: '#52c41a', fontSize: 15 }} />
-            <Text strong style={{ fontSize: 13 }}>{selectedReg}</Text>
-            <Badge status="processing" />
-            <Text style={{ color: '#52c41a', fontSize: 12 }}>Engine ON</Text>
-            <Text style={{ color: '#bbb', fontSize: 12 }}>•</Text>
-            <Text strong style={{ fontSize: 13 }}>
-              {liveCur?.speed ?? selDev?.speed ?? 0} km/h
-            </Text>
-          </div>
-          {/* Right: tabs + close */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {[
-              { key: 'live',         icon: <ThunderboltOutlined />, label: 'Live Tracking' },
-              { key: 'history',      icon: <HistoryOutlined />,      label: 'History' },
-              { key: 'vehicle-info', icon: <CarOutlined />,          label: 'Vehicle Info' },
-              { key: 'device-info',  icon: <MobileOutlined />,       label: 'Device Info' },
-            ].map(t => (
-              <Button key={t.key}
-                type={activeTab === t.key ? 'primary' : 'text'}
-                icon={t.icon} size="small"
-                onClick={() => setActiveTab(t.key)}
-                style={{ borderRadius: 16, fontSize: 12, height: 28, paddingInline: 10 }}>
-                {t.label}
-              </Button>
-            ))}
-            <Button size="small" type="text" icon={<CloseOutlined />}
-              onClick={() => onSelect(null)}
-              style={{ marginLeft: 4, color: '#bbb', fontSize: 12 }} />
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════
-         MAP AREA
-      ══════════════════════════════════════════════════════ */}
-      {showMap && (
-        <Spin spinning={loading && activeTab === 'live'}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-start' }}>
-
-            {/* ── Map column ────────────────────────────────── */}
-            <div style={{
-              flex: 1, minWidth: 0, position: 'relative',
-              borderRadius: 12, overflow: 'hidden',
-              boxShadow: '0 2px 10px rgba(0,0,0,.12)',
-            }}>
-              {/* Live badge */}
-              {activeTab === 'live' && (
-                <div style={{
-                  position: 'absolute', top: 10, left: 50, zIndex: 1000, pointerEvents: 'none',
-                  background: 'rgba(0,0,0,.65)', borderRadius: 8, padding: '4px 10px',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}>
-                  <Badge status="processing" />
-                  <Text style={{ color: '#52c41a', fontSize: 12 }}>
-                    Live · {selectedReg ? '1 vehicle' : `${liveAll.length} vehicles`}
-                  </Text>
-                </div>
-              )}
-
-              {/* History filter overlay (top-left of map) */}
-              {histFilterOverlay}
-
-              {/* Layer switcher (top-right) */}
-              <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
-                <Segmented size="small" value={mapLayer} onChange={setMapLayer}
-                  options={Object.entries(TILES).map(([k, v]) => ({ value: k, label: v.label }))}
-                  style={{ background: 'rgba(0,0,0,.6)', borderRadius: 8, padding: 2 }}
-                  className="map-layer-switcher"
-                />
+        {/* ── Vehicle List / Selected Details ───────────────────── */}
+        {!selectedReg ? (
+          /* Fleet List */
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {loading && (
+              <div style={{ textAlign: 'center', padding: 32 }}>
+                <Spin size="default" />
               </div>
+            )}
+            {filteredDevices.map((d) => {
+              const live = liveAll.find(v => v.vehicle === d.vehicleReg);
+              const speed = live?.speed ?? 0;
+              const spStr = typeof speed === 'number' ? speed.toFixed(1) : speed;
+              return (
+                <div key={d.vehicleReg}
+                  onClick={() => onSelect(d.vehicleReg)}
+                  style={{
+                    padding: '10px 14px', borderBottom: `1px solid ${border}`,
+                    cursor: 'pointer', transition: 'background 0.15s',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(22,119,255,0.08)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  {/* Live dot */}
+                  <div style={{ position: 'relative', width: 10, height: 10, flexShrink: 0 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#52c41a', boxShadow: '0 0 6px #52c41a' }} />
+                  </div>
 
-              {/* Auto-refresh (live, bottom-right) */}
-              {activeTab === 'live' && (
-                <div style={{
-                  position: 'absolute', bottom: 30, right: 10, zIndex: 1000,
-                  background: 'rgba(0,0,0,.6)', borderRadius: 8, padding: '5px 8px',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}>
-                  <Text style={{ color: '#8c9ab0', fontSize: 11 }}>Auto</Text>
-                  <Button size="small" type="text"
-                    icon={autoRefresh ? <PauseOutlined style={{ color: '#52c41a' }} /> : <PlayCircleOutlined style={{ color: '#8c9ab0' }} />}
-                    onClick={() => setAutoRefresh(v => !v)} style={{ padding: 0 }} />
-                  <Text style={{ color: '#8c9ab0', fontSize: 11 }}>{intervalSec}s</Text>
-                  <Button size="small" type="text"
-                    icon={<ReloadOutlined style={{ color: '#8c9ab0', fontSize: 12 }} />}
-                    onClick={() => { fetchAll(); if (selectedReg) fetchOne(selectedReg); }}
-                    style={{ padding: 0 }} />
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: textPri }}>{d.vehicleReg}</div>
+                    <div style={{ fontSize: 10, color: textSec, marginTop: 1 }}>
+                      {d.vehicleMake || 'GPS Device'}{live?.driver ? ` · ${live.driver}` : ''}
+                    </div>
+                  </div>
+
+                  {/* Speed + Live tag */}
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: '#52c41a', fontWeight: 700 }}>● LIVE</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: spStr > 0 ? '#52c41a' : textSec, marginTop: 1 }}>
+                      {spStr} <span style={{ fontSize: 9, fontWeight: 400 }}>km/h</span>
+                    </div>
+                  </div>
+
+                  {/* Arrow */}
+                  <div style={{ color: textSec, fontSize: 12, flexShrink: 0 }}>›</div>
                 </div>
-              )}
-
-              {/* History stats bar (bottom of map) */}
-              {activeTab === 'history' && histData && (
+              );
+            })}
+            {filteredDevices.length === 0 && !loading && (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: textSec }}>
+                <EnvironmentOutlined style={{ fontSize: 32, marginBottom: 10, opacity: 0.3 }} />
+                <div style={{ fontSize: 12 }}>No vehicles found</div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Selected Vehicle Details */
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Back + Vehicle header */}
+            <div style={{ padding: '10px 14px', borderBottom: `1px solid ${border}` }}>
+              <button onClick={() => onSelect(null)}
+                style={{ background: 'none', border: 'none', color: textSec, cursor: 'pointer',
+                  fontSize: 11, padding: 0, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                ‹ All Vehicles
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1000,
-                  background: 'rgba(0,0,0,.62)', padding: '5px 14px',
-                  display: 'flex', gap: 28, alignItems: 'center',
+                  width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                  background: 'linear-gradient(135deg, #52c41a22, #52c41a44)',
+                  border: '1px solid rgba(82,196,26,0.35)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <Text style={{ color: '#aaa', fontSize: 11 }}>TOTAL</Text>
-                  <Text strong style={{ color: '#52c41a', fontSize: 13 }}>{histData.totalKm} km</Text>
-                  <Text style={{ color: '#aaa', fontSize: 11 }}>TRAVELED</Text>
-                  <Text strong style={{ color: '#1677ff', fontSize: 13 }}>{histData.traveledKm} km</Text>
-                  <Text style={{ color: '#666', fontSize: 11 }}>{trackPts.length} pts</Text>
+                  <CarOutlined style={{ fontSize: 18, color: '#52c41a' }} />
                 </div>
-              )}
-
-              <MapContainer center={[23.8, 90.4]} zoom={7}
-                style={{ height: 'clamp(320px, calc(100vh - 260px), 600px)', width: '100%' }} scrollWheelZoom>
-                <TileLayer key={mapLayer} url={TILES[mapLayer].url} attribution={TILES[mapLayer].attribution} />
-                <ResizeHandler trigger={splitLayout} />
-
-                {activeTab === 'live' && liveCur && <FlyTo lat={liveCur.lat} lng={liveCur.lng} zoom={13} />}
-                {activeTab === 'history' && trackPts.length > 1 && !curPt && <FitBounds points={trackPts} />}
-                {activeTab === 'history' && curPt && <FlyTo lat={curPt.lat} lng={curPt.lng} zoom={14} />}
-
-                {/* Live: selected vehicle — trail + car icon */}
-                {activeTab === 'live' && selectedReg && liveCur && (<>
-                  {liveCur.trail?.length > 1 && (
-                    <Polyline positions={liveCur.trail}
-                      pathOptions={{ color: '#52c41a', weight: 4, opacity: 0.65, dashArray: '8 5' }} />
-                  )}
-                  <Marker position={[liveCur.lat, liveCur.lng]} icon={makeVehicleIcon('#52c41a', true)}>
-                    <Popup minWidth={300}>
-                      <div style={{ minWidth: 300, fontFamily: 'inherit' }}>
-                        {/* Header: VEHICLE reg (datetime) Running */}
-                        <div style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          margin: '-8px -12px 8px', padding: '7px 12px',
-                          background: '#f5f5f5', borderBottom: '1px solid #e8e8e8', borderRadius: '4px 4px 0 0',
-                        }}>
-                          <div style={{ fontSize: 11, color: '#555' }}>
-                            <span style={{ color: '#888', marginRight: 4 }}>VEHICLE</span>
-                            <strong style={{ color: '#1a1a1a', fontSize: 12 }}>{liveCur.vehicle}</strong>
-                            {liveCur.positionTime && (
-                              <span style={{ color: '#888', marginLeft: 6, fontSize: 10 }}>
-                                ({liveCur.positionTime})
-                              </span>
-                            )}
-                          </div>
-                          <Tag color="success" style={{ margin: 0, fontSize: 10, fontWeight: 700 }}>Running</Tag>
-                        </div>
-
-                        {/* Body: Speed (left) | Position + Location (right) */}
-                        <div style={{ display: 'flex', gap: 12 }}>
-                          {/* Speed column */}
-                          <div style={{ minWidth: 90, borderRight: '1px solid #f0f0f0', paddingRight: 12 }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#888', marginBottom: 2, letterSpacing: '0.05em' }}>SPEED</div>
-                            <div style={{ fontSize: 26, fontWeight: 900, color: '#52c41a', lineHeight: 1 }}>
-                              {typeof liveCur.speed === 'number' ? liveCur.speed.toFixed(2) : liveCur.speed}
-                            </div>
-                            <div style={{ fontSize: 11, color: '#666', marginTop: 1 }}>km/h</div>
-                            <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>Limit: 100.0 km/h</div>
-                          </div>
-
-                          {/* Position + Location column */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ marginBottom: 6 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: '#888', letterSpacing: '0.05em', marginBottom: 2 }}>POSITION</div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ fontSize: 11, color: '#333', fontFamily: 'monospace' }}>
-                                  {liveCur.lat}, {liveCur.lng}
-                                </span>
-                                <Button type="text" size="small" style={{ padding: '0 2px', height: 18 }}
-                                  onClick={() => navigator.clipboard?.writeText(`${liveCur.lat}, ${liveCur.lng}`)}>
-                                  <span style={{ fontSize: 12 }}>⧉</span>
-                                </Button>
-                              </div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: '#888', letterSpacing: '0.05em', marginBottom: 2 }}>LOCATION</div>
-                              <div style={{ fontSize: 11, color: '#444', lineHeight: 1.5 }}>{liveCur.location}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </Popup>
-                  </Marker>
-                </>)}
-
-                {/* Live: all vehicles — trails + car icons */}
-                {activeTab === 'live' && !selectedReg && (<>
-                  {liveAll.filter(v => v.trail?.length > 1).map(v => (
-                    <Polyline key={`trail-${v.key}`} positions={v.trail}
-                      pathOptions={{ color: VEH_COLOR[v.status] ?? '#52c41a', weight: 3, opacity: 0.55, dashArray: '7 5' }} />
-                  ))}
-                  {liveAll.map(v => (
-                    <Marker key={v.key} position={[v.lat, v.lng]}
-                      icon={makeVehicleIcon(VEH_COLOR[v.status] ?? '#52c41a', false)}>
-                      <Popup minWidth={280}>
-                        <div style={{ minWidth: 280, fontFamily: 'inherit' }}>
-                          {/* Header */}
-                          <div style={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            margin: '-8px -12px 8px', padding: '7px 12px',
-                            background: '#f5f5f5', borderBottom: '1px solid #e8e8e8', borderRadius: '4px 4px 0 0',
-                          }}>
-                            <div>
-                              <span style={{ color: '#888', fontSize: 11, marginRight: 4 }}>VEHICLE</span>
-                              <strong style={{ fontSize: 12 }}>{v.vehicle}</strong>
-                              {v.positionTime && (
-                                <span style={{ color: '#aaa', fontSize: 10, marginLeft: 6 }}>({v.positionTime})</span>
-                              )}
-                            </div>
-                            <Tag color="success" style={{ margin: 0, fontSize: 10, fontWeight: 700 }}>Running</Tag>
-                          </div>
-                          {/* Body */}
-                          <div style={{ display: 'flex', gap: 12 }}>
-                            <div style={{ minWidth: 80, borderRight: '1px solid #f0f0f0', paddingRight: 12 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: '#888', marginBottom: 2 }}>SPEED</div>
-                              <div style={{ fontSize: 22, fontWeight: 900, color: '#52c41a', lineHeight: 1 }}>
-                                {typeof v.speed === 'number' ? v.speed.toFixed(2) : v.speed}
-                              </div>
-                              <div style={{ fontSize: 11, color: '#666' }}>km/h</div>
-                              <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>Limit: 100.0 km/h</div>
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 11, color: '#555', marginBottom: 4 }}>
-                                <span style={{ color: '#888' }}>Driver: </span>{v.driver}
-                              </div>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: '#888', marginBottom: 1 }}>POSITION</div>
-                              <div style={{ fontSize: 11, color: '#333', fontFamily: 'monospace', marginBottom: 4 }}>
-                                {v.lat}, {v.lng}
-                              </div>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: '#888', marginBottom: 1 }}>LOCATION</div>
-                              <div style={{ fontSize: 11, color: '#444', lineHeight: 1.5 }}>{v.location}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                </>)}
-
-                {/* History: route polyline + markers */}
-                {activeTab === 'history' && trackPts.length > 0 && (<>
-                  <Polyline positions={trackPts.map(p => [p.lat, p.lng])}
-                    pathOptions={{ color: '#1677ff', weight: 3, opacity: 0.75 }} />
-                  {trackPts.map((p, i) => (
-                    <CircleMarker key={i} center={[p.lat, p.lng]}
-                      radius={i === playIdx ? 9 : (dispMode === 'Dots' ? 2 : 4)}
-                      pathOptions={{
-                        color:       i === playIdx ? '#ff4d4f' : (p.engineStatus === 'running' ? '#52c41a' : '#fa8c16'),
-                        fillColor:   i === playIdx ? '#ff4d4f' : '#1677ff',
-                        fillOpacity: 1, weight: i === playIdx ? 3 : 1,
-                      }}>
-                      <Popup>
-                        <div style={{ minWidth: 210 }}>
-                          <div style={{ background: '#1677ff', color: '#fff', padding: '5px 10px', margin: '-8px -12px 8px', borderRadius: '4px 4px 0 0' }}>
-                            <div style={{ fontSize: 11, fontWeight: 700 }}>VEHICLE</div>
-                            <div style={{ fontSize: 10, opacity: 0.85 }}>{p.timestamp}</div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                            <Tag color={p.engineStatus === 'running' ? 'green' : 'orange'} style={{ margin: 0 }}>
-                              {p.engineStatus === 'running' ? 'Running' : 'Stopped'}
-                            </Tag>
-                            <Text strong style={{ color: '#1677ff', fontSize: 16 }}>{p.speed}</Text>
-                            <Text type="secondary" style={{ fontSize: 11 }}>km/h</Text>
-                          </div>
-                          <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>📍 {p.lat}, {p.lng}</div>
-                          <div style={{ fontSize: 12 }}>{p.location}</div>
-                          <div style={{ marginTop: 6, fontSize: 11, color: '#888' }}>
-                            TRAVELED <strong>{histData?.traveledKm ?? 0} km</strong>
-                          </div>
-                        </div>
-                      </Popup>
-                    </CircleMarker>
-                  ))}
-                </>)}
-              </MapContainer>
-            </div>
-
-            {/* ── History right panel ───────────────────────── */}
-            {splitLayout && (
-              <div style={{
-                flex: '0 0 320px', display: 'flex', flexDirection: 'column',
-                height: 'clamp(320px, calc(100vh - 260px), 600px)', background: '#fff', borderRadius: 12,
-                border: '1px solid #e8e8e8', overflow: 'hidden',
-                boxShadow: '0 2px 10px rgba(0,0,0,.1)',
-              }}>
-                {/* Header */}
-                <div style={{
-                  background: 'linear-gradient(135deg,#1677ff,#0050b3)',
-                  padding: '10px 14px',
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                }}>
-                  <Text style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>
-                    <HistoryOutlined style={{ marginRight: 6 }} />Trip History
-                  </Text>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ color: 'rgba(255,255,255,.8)', fontSize: 12 }}>
-                      {histData?.totalKm ?? 0} km · {trackPts.length} pts
-                    </Text>
-                    {trackPts.length > 0 && (
-                      <Tag style={{ background: 'rgba(255,255,255,.18)', color: '#fff', borderColor: 'transparent', fontSize: 10 }}>
-                        {selectedReg}
-                      </Tag>
-                    )}
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: textPri }}>{selectedReg}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#52c41a' }} />
+                    <span style={{ fontSize: 10, color: '#52c41a', fontWeight: 600 }}>LIVE · ENGINE ON</span>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                {/* Display mode toggle */}
-                <div style={{ padding: '6px 12px', borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
-                  <Segmented size="small" value={dispMode} onChange={setDispMode}
-                    options={['Markers', 'Dots', 'Icons']} />
-                </div>
+            {/* Tab bar */}
+            <div style={{ display: 'flex', borderBottom: `1px solid ${border}`, background: panelBg2 }}>
+              {[
+                { key: 'live',         icon: <ThunderboltOutlined />, label: 'Live' },
+                { key: 'history',      icon: <HistoryOutlined />,     label: 'History' },
+                { key: 'vehicle-info', icon: <CarOutlined />,         label: 'Vehicle' },
+                { key: 'device-info',  icon: <MobileOutlined />,      label: 'Device' },
+              ].map(t => (
+                <button key={t.key} onClick={() => setActiveTab(t.key)}
+                  style={{
+                    flex: 1, background: 'none', border: 'none',
+                    borderBottom: activeTab === t.key ? `2px solid ${accent}` : '2px solid transparent',
+                    color: activeTab === t.key ? accent : textSec,
+                    cursor: 'pointer', padding: '8px 4px', fontSize: 10, fontWeight: 600,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                    transition: 'all 0.2s',
+                  }}>
+                  <span style={{ fontSize: 14 }}>{t.icon}</span>
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
 
-                {/* Point list */}
-                <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {histLoading && (
-                    <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
-                  )}
-                  {!histLoading && trackPts.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '36px 16px', color: '#8c9ab0' }}>
-                      <HistoryOutlined style={{ fontSize: 38, display: 'block', marginBottom: 10, opacity: 0.4 }} />
-                      <div style={{ fontSize: 13, marginBottom: 6, fontWeight: 600 }}>No history data</div>
-                      <div style={{ fontSize: 12, lineHeight: 1.6 }}>
-                        Select a period from the filter<br />on the map and click <strong>Show History</strong>
+            {/* Tab content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px' }}>
+
+              {activeTab === 'live' && liveCur && (
+                <div>
+                  {/* Speed Card */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(82,196,26,0.12) 0%, rgba(82,196,26,0.06) 100%)',
+                    border: '1px solid rgba(82,196,26,0.3)', borderRadius: 12,
+                    padding: '14px 16px', marginBottom: 10, textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: 10, color: '#52c41a', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 4 }}>CURRENT SPEED</div>
+                    <div style={{ fontSize: 42, fontWeight: 900, color: '#52c41a', lineHeight: 1 }}>
+                      {typeof liveCur.speed === 'number' ? liveCur.speed.toFixed(2) : liveCur.speed}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#8b949e', marginTop: 2 }}>km/h</div>
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.min((liveCur.speed / 100) * 100, 100)}%`,
+                          background: 'linear-gradient(90deg, #52c41a, #95de64)', borderRadius: 2 }} />
                       </div>
+                      <div style={{ fontSize: 9, color: textSec, marginTop: 3 }}>Speed limit: 100 km/h</div>
+                    </div>
+                  </div>
+
+                  {/* Info grid */}
+                  {[
+                    { label: 'Driver',   value: liveCur.driver || '—' },
+                    { label: 'Position', value: `${liveCur.lat}, ${liveCur.lng}`, mono: true },
+                    { label: 'Location', value: liveCur.location || '—' },
+                    { label: 'Route',    value: liveCur.route || 'On Trip' },
+                    { label: 'Progress', value: null, progress: liveCur.progress },
+                    { label: 'Fuel',     value: null, fuel: liveCur.fuel },
+                    { label: 'Updated',  value: liveCur.positionTime || '—' },
+                  ].map(item => (
+                    <div key={item.label} style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>{item.label.toUpperCase()}</div>
+                      {item.value !== null && item.value !== undefined && (
+                        <div style={{ fontSize: 12, color: textPri, fontFamily: item.mono ? 'monospace' : 'inherit',
+                          background: panelBg2, borderRadius: 6, padding: '5px 8px', lineHeight: 1.5 }}>
+                          {item.value}
+                        </div>
+                      )}
+                      {item.progress !== undefined && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1, height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>
+                            <div style={{ height: '100%', width: `${item.progress}%`, background: accent, borderRadius: 3 }} />
+                          </div>
+                          <span style={{ fontSize: 11, color: accent, fontWeight: 700, minWidth: 30 }}>{item.progress}%</span>
+                        </div>
+                      )}
+                      {item.fuel !== undefined && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1, height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>
+                            <div style={{ height: '100%', width: `${item.fuel}%`,
+                              background: item.fuel > 50 ? '#52c41a' : item.fuel > 20 ? '#fa8c16' : '#ff4d4f',
+                              borderRadius: 3 }} />
+                          </div>
+                          <span style={{ fontSize: 11, color: item.fuel > 50 ? '#52c41a' : item.fuel > 20 ? '#fa8c16' : '#ff4d4f',
+                            fontWeight: 700, minWidth: 30 }}>{item.fuel}%</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  <button onClick={() => copyCoords(liveCur.lat, liveCur.lng)}
+                    style={{
+                      width: '100%', background: 'rgba(88,166,255,0.1)', border: '1px solid rgba(88,166,255,0.25)',
+                      borderRadius: 8, padding: '7px 12px', cursor: 'pointer', color: '#58a6ff', fontSize: 11,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 6,
+                    }}>
+                    <CopyOutlined /> Copy Coordinates
+                  </button>
+                </div>
+              )}
+
+              {activeTab === 'live' && !liveCur && (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: textSec }}>
+                  <ThunderboltOutlined style={{ fontSize: 36, opacity: 0.3, display: 'block', marginBottom: 10 }} />
+                  <div style={{ fontSize: 12 }}>Fetching live data...</div>
+                </div>
+              )}
+
+              {activeTab === 'history' && (
+                <div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 4 }}>PERIOD</div>
+                    <Select value={histPeriod} onChange={setHistPeriod} size="small"
+                      style={{ width: '100%', marginBottom: 6 }}
+                      options={[
+                        { value: 'today',    label: 'Today' },
+                        { value: 'last4h',   label: 'Last 4 Hours' },
+                        { value: 'last6h',   label: 'Last 6 Hours' },
+                        { value: 'last12h',  label: 'Last 12 Hours' },
+                        { value: 'last24h',  label: 'Last 24 Hours' },
+                        { value: 'specific', label: 'Specific Date' },
+                        { value: 'range',    label: 'Date Range (7d)' },
+                      ]}
+                    />
+                    {histPeriod === 'specific' && (
+                      <DatePicker size="small" value={histDate} onChange={setHistDate} style={{ width: '100%', marginBottom: 6 }} />
+                    )}
+                    {histPeriod === 'range' && (
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                        <DatePicker size="small" value={histFrom} onChange={setHistFrom} placeholder="From"
+                          style={{ flex: 1 }} disabledDate={d => d && d.isAfter(dayjs())} />
+                        <DatePicker size="small" value={histTo} onChange={setHistTo} placeholder="To"
+                          style={{ flex: 1 }} disabledDate={d => {
+                            if (!d || d.isAfter(dayjs())) return true;
+                            return histFrom ? d.diff(histFrom, 'day') > 7 : false;
+                          }} />
+                      </div>
+                    )}
+                    <button onClick={fetchHistory}
+                      style={{
+                        width: '100%', background: 'linear-gradient(135deg, #1677ff, #0050b3)',
+                        border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer',
+                        color: '#fff', fontSize: 12, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        opacity: histLoading ? 0.7 : 1,
+                      }}
+                      disabled={histLoading}>
+                      <HistoryOutlined /> {histLoading ? 'Loading...' : 'Show History'}
+                    </button>
+                  </div>
+
+                  {histData && (
+                    <div style={{ background: panelBg2, borderRadius: 10, padding: '10px 12px', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <div>
+                          <div style={{ fontSize: 9, color: textSec, letterSpacing: '0.08em' }}>TOTAL DISTANCE</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: accent }}>{histData.totalKm} km</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 9, color: textSec, letterSpacing: '0.08em' }}>DATA POINTS</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: '#fa8c16' }}>{trackPts.length}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Playback controls */}
+                  {trackPts.length > 0 && (
+                    <div style={{
+                      background: panelBg2, borderRadius: 10, padding: '10px 12px',
+                      border: `1px solid ${border}`, marginBottom: 10,
+                    }}>
+                      <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 8 }}>PLAYBACK</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <button onClick={togglePlay}
+                          style={{
+                            width: 34, height: 34, borderRadius: '50%', cursor: 'pointer',
+                            background: playing ? 'rgba(255,77,79,0.2)' : 'rgba(22,119,255,0.2)',
+                            border: `1px solid ${playing ? 'rgba(255,77,79,0.5)' : 'rgba(22,119,255,0.5)'}`,
+                            color: playing ? '#ff4d4f' : accent, fontSize: 16, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                          }}>
+                          {playing ? <PauseOutlined /> : <PlayCircleOutlined />}
+                        </button>
+                        <div style={{ flex: 1 }}>
+                          <input type="range" min={0} max={trackPts.length - 1} value={playIdx}
+                            onChange={e => setPlayIdx(Number(e.target.value))}
+                            style={{ width: '100%', accentColor: accent }} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: textSec }}>{playIdx + 1} / {trackPts.length}</span>
+                        <Select size="small" value={playSpeed} onChange={setPlaySpeed} style={{ width: 100 }}
+                          options={[
+                            { value: 500, label: '0.5× Speed' },
+                            { value: 200, label: '1× Speed' },
+                            { value: 100, label: '2× Speed' },
+                            { value: 50,  label: '4× Speed' },
+                          ]}
+                        />
+                        <button onClick={() => { setPlayIdx(0); setPlaying(false); clearInterval(playRef.current); }}
+                          style={{ background: 'none', border: 'none', color: textSec, cursor: 'pointer', fontSize: 14 }}>↺</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* History point list */}
+                  {!histLoading && trackPts.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '20px 0', color: textSec }}>
+                      <HistoryOutlined style={{ fontSize: 28, opacity: 0.3, display: 'block', marginBottom: 8 }} />
+                      <div style={{ fontSize: 11 }}>Select period and click Show History</div>
                     </div>
                   )}
                   {trackPts.map((p, i) => (
                     <div key={i} onClick={() => setPlayIdx(i)}
-                      onMouseEnter={e => { if (i !== playIdx) e.currentTarget.style.background = '#f7f7f7'; }}
-                      onMouseLeave={e => { if (i !== playIdx) e.currentTarget.style.background = 'transparent'; }}
                       style={{
-                        padding: '7px 12px', borderBottom: '1px solid #f5f5f5', cursor: 'pointer',
-                        background: i === playIdx ? '#e6f4ff' : 'transparent',
-                        borderLeft: `3px solid ${i === playIdx ? '#1677ff' : 'transparent'}`,
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                        transition: 'background .1s',
-                      }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#222' }}>{p.timestamp}</div>
-                        <div style={{ fontSize: 10, color: '#aaa', marginTop: 1 }}>
-                          {p.lat.toFixed(8)}, {p.lng.toFixed(8)}
+                        padding: '7px 10px', borderRadius: 8, marginBottom: 3, cursor: 'pointer',
+                        background: i === playIdx ? 'rgba(22,119,255,0.15)' : 'transparent',
+                        border: `1px solid ${i === playIdx ? 'rgba(22,119,255,0.4)' : 'transparent'}`,
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { if (i !== playIdx) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                      onMouseLeave={e => { if (i !== playIdx) e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: textPri }}>{p.timestamp}</div>
+                        <div style={{ fontSize: 9, color: textSec, fontFamily: 'monospace' }}>
+                          {p.lat.toFixed(6)}, {p.lng.toFixed(6)}
                         </div>
                       </div>
-                      <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#1677ff', lineHeight: 1.2 }}>{p.speed}</div>
-                        <div style={{ fontSize: 10, color: '#888' }}>km/h #{i + 1}</div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>{p.speed}</div>
+                        <div style={{ fontSize: 9, color: textSec }}>km/h</div>
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {/* Playback controls */}
-                <div style={{
-                  padding: '7px 10px', borderTop: '1px solid #eee',
-                  display: 'flex', alignItems: 'center', gap: 6, background: '#fafafa',
-                }}>
-                  <Button type="primary" shape="circle" size="small"
-                    icon={playing ? <PauseOutlined /> : <PlayCircleOutlined />}
-                    onClick={togglePlay} disabled={trackPts.length === 0} />
-                  <div style={{ width: 8, height: 8, borderRadius: 4, background: playing ? '#1677ff' : '#ddd' }} />
-                  <Text style={{ fontSize: 12, color: '#555' }}>
-                    {trackPts.length > 0 ? `${playIdx + 1} / ${trackPts.length}` : '—'}
-                  </Text>
-                  <div style={{ flex: 1 }} />
-                  <Select size="small" value={playSpeed} onChange={setPlaySpeed} style={{ width: 96 }}
-                    options={[
-                      { value: 500, label: '0.5x Speed' },
-                      { value: 200, label: '1x Speed' },
-                      { value: 100, label: '2x Speed' },
-                      { value: 50,  label: '4x Speed' },
-                    ]}
-                  />
-                  <Button size="small" type="text"
-                    onClick={() => { setPlayIdx(0); setPlaying(false); clearInterval(playRef.current); }}>
-                    ↺
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </Spin>
-      )}
-
-      {/* ══════════════════════════════════════════════════════
-         VEHICLE INFO
-      ══════════════════════════════════════════════════════ */}
-      {activeTab === 'vehicle-info' && selectedReg && (
-        <Card style={{ borderRadius: 12, marginBottom: 12 }}
-          title={<><CarOutlined style={{ marginRight: 6 }} />Vehicle Information — {selectedReg}</>}>
-          <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
-            <Descriptions.Item label="Registration">{selectedReg}</Descriptions.Item>
-            <Descriptions.Item label="Make / Model">{liveCur?.vehicleMake || selDev?.vehicleMake || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Type">{liveCur?.vehicleType || selDev?.vehicleType || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Engine Status">
-              <Tag color={selDev?.engineStatus === 'on' ? 'green' : 'default'}>
-                Engine {selDev?.engineStatus === 'on' ? 'ON' : 'OFF'}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Current Speed">{liveCur ? `${liveCur.speed} km/h` : '—'}</Descriptions.Item>
-            <Descriptions.Item label="Heading">{liveCur?.heading || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Current Location" span={2}>{liveCur?.location || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Active Route" span={2}>{liveCur?.route || 'Not on a trip'}</Descriptions.Item>
-            <Descriptions.Item label="Trip Progress">
-              {liveCur ? <Progress percent={liveCur.progress} size="small" strokeColor="#1677ff" style={{ maxWidth: 200 }} /> : '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Distance">{liveCur ? `${liveCur.elapsedKm} / ${liveCur.distance} km` : '—'}</Descriptions.Item>
-            <Descriptions.Item label="Fuel">
-              {liveCur
-                ? <Progress percent={liveCur.fuel} size="small"
-                    strokeColor={liveCur.fuel > 50 ? '#52c41a' : liveCur.fuel > 20 ? '#fa8c16' : '#ff4d4f'}
-                    style={{ maxWidth: 200 }} />
-                : '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Engine Temp">
-              <Tag color={liveCur?.temp === 'High' ? 'red' : 'green'}>{liveCur?.temp || 'Normal'}</Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Driver" span={2}>{liveCur?.driver || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Purpose" span={2}>{liveCur?.purpose || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Dispatch No">{liveCur?.dispatchNo || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Approved By">{liveCur?.approvedBy || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Coordinates" span={2}>
-              {liveCur ? `${liveCur.lat}°N, ${liveCur.lng}°E` : '—'}
-            </Descriptions.Item>
-          </Descriptions>
-        </Card>
-      )}
-
-      {/* ══════════════════════════════════════════════════════
-         DEVICE INFO
-      ══════════════════════════════════════════════════════ */}
-      {activeTab === 'device-info' && selectedReg && selDev && (
-        <Card style={{ borderRadius: 12, marginBottom: 12 }}
-          title={<><MobileOutlined style={{ marginRight: 6 }} />GPS Device Info — {selectedReg}</>}>
-          <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
-            <Descriptions.Item label="Vehicle Reg">{selDev.vehicleReg}</Descriptions.Item>
-            <Descriptions.Item label="Device Model">{selDev.deviceModel}</Descriptions.Item>
-            <Descriptions.Item label="IMEI">{selDev.imei}</Descriptions.Item>
-            <Descriptions.Item label="VTS SIM (MSISDN)">{selDev.msisdn}</Descriptions.Item>
-            <Descriptions.Item label="Client Mobile">{selDev.clientMobile || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Client ID">{selDev.clientId}</Descriptions.Item>
-            <Descriptions.Item label="Engine">
-              <Badge status={selDev.engineStatus === 'on' ? 'success' : 'default'} />
-              Engine {selDev.engineStatus === 'on' ? 'ON' : 'OFF'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Tracking">
-              <Tag color={selDev.isActive ? 'green' : 'orange'}>
-                {selDev.isActive ? 'Active / Tracking' : 'Parked'}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Speed" span={2}>{selDev.speed} km/h</Descriptions.Item>
-          </Descriptions>
-        </Card>
-      )}
-
-      {/* ══════════════════════════════════════════════════════
-         LIVE: vehicle cards + info strip + table
-      ══════════════════════════════════════════════════════ */}
-      {activeTab === 'live' && !selectedReg && (
-        <Row gutter={[10, 10]} style={{ marginBottom: 12 }}>
-          {liveAll.map(v => (
-            <Col key={v.key} xs={24} sm={12} md={8} lg={6} xl={4}>
-              <Card size="small" hoverable onClick={() => onSelect(v.vehicle)}
-                style={{ borderRadius: 10, cursor: 'pointer',
-                  borderColor: VEH_COLOR[v.status] ?? '#52c41a',
-                  boxShadow: `0 0 8px ${VEH_COLOR[v.status] ?? '#52c41a'}25`,
-                }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <Text strong style={{ fontSize: 13 }}>{v.vehicle}</Text>
-                  <Tag color="green" style={{ margin: 0, fontSize: 10 }}>MOVING</Tag>
-                </div>
-                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{v.driver}</Text>
-                <Text type="secondary" style={{ fontSize: 11 }}>{v.speed} km/h · ⛽ {v.fuel}%</Text>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      )}
-
-      {activeTab === 'live' && selectedReg && liveCur && (
-        <Card size="small" style={{ borderRadius: 12, marginBottom: 12, borderColor: '#52c41a' }}
-          styles={{ body: { padding: '10px 16px' } }}>
-          <Row gutter={16} align="middle" wrap>
-            <Col>
-              <Badge status="processing" />
-              <Text strong style={{ fontSize: 13 }}>{liveCur.vehicle}</Text>
-              {liveCur.positionTime && (
-                <Text type="secondary" style={{ fontSize: 10, marginLeft: 6 }}>({liveCur.positionTime})</Text>
               )}
-            </Col>
-            <Col>
-              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Driver</Text>
-              <Text style={{ fontSize: 12 }}>{liveCur.driver}</Text>
-            </Col>
-            <Col>
-              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Speed</Text>
-              <Text strong style={{ color: '#52c41a', fontSize: 18, lineHeight: 1 }}>
-                {typeof liveCur.speed === 'number' ? liveCur.speed.toFixed(2) : liveCur.speed}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 10 }}> km/h</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: 10 }}>Limit: 100.0 km/h</Text>
-            </Col>
-            <Col>
-              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Position</Text>
-              <Text style={{ fontSize: 11, fontFamily: 'monospace' }}>
-                {liveCur.lat}, {liveCur.lng}
-              </Text>
-            </Col>
-            <Col>
-              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Fuel</Text>
-              <Progress percent={liveCur.fuel} size="small"
-                strokeColor={liveCur.fuel > 50 ? '#52c41a' : liveCur.fuel > 20 ? '#fa8c16' : '#ff4d4f'}
-                style={{ width: 80 }} />
-            </Col>
-            <Col flex="auto">
-              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Location</Text>
-              <Text style={{ fontSize: 11 }}>{liveCur.location}</Text>
-            </Col>
-            <Col>
-              <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Progress</Text>
-              <Progress percent={liveCur.progress} size="small" strokeColor="#1677ff" style={{ width: 110 }} />
-            </Col>
-          </Row>
-        </Card>
-      )}
 
-      {activeTab === 'live' && !selectedReg && (
-        <Card size="small" style={{ borderRadius: 12 }}
-          title={<Text strong>Live Vehicle List</Text>} styles={{ body: { padding: 0 } }}>
-          <Table dataSource={liveAll} rowKey="key" size="small" pagination={false}
-            scroll={{ x: 'max-content' }}
-            locale={{ emptyText: 'No active trips — run vts_live_demo.sql to populate live vehicles' }}
-            onRow={r => ({ onClick: () => onSelect(r.vehicle), style: { cursor: 'pointer' } })}
-            columns={[
-              { title: 'Vehicle',  dataIndex: 'vehicle',  render: v => <Text strong style={{ color: '#1677ff' }}>{v}</Text> },
-              { title: 'Driver',   dataIndex: 'driver' },
-              { title: 'Speed',    dataIndex: 'speed',    render: v => `${v} km/h` },
-              { title: 'Fuel',     dataIndex: 'fuel',     render: v => <span style={{ color: v > 50 ? '#52c41a' : v > 20 ? '#fa8c16' : '#ff4d4f', fontWeight: 600 }}>{v}%</span> },
-              { title: 'Route',    dataIndex: 'route',    ellipsis: true },
-              { title: 'Progress', dataIndex: 'progress', render: v => `${v}%` },
-              { title: 'Location', dataIndex: 'location', ellipsis: true },
-              { title: '',         render: (_, r) => <Button type="link" size="small" onClick={e => { e.stopPropagation(); onSelect(r.vehicle); }}>Track →</Button> },
-            ]}
-          />
-        </Card>
-      )}
+              {activeTab === 'vehicle-info' && (
+                <div>
+                  {[
+                    { label: 'Registration No', value: selectedReg },
+                    { label: 'Make / Model',    value: `${selDev?.vehicleMake || '—'}` },
+                    { label: 'Current Speed',   value: liveCur ? `${liveCur.speed} km/h` : '—' },
+                    { label: 'Heading',         value: liveCur?.heading || '—' },
+                    { label: 'Current Location', value: liveCur?.location || '—' },
+                    { label: 'Active Route',    value: liveCur?.route || 'On Trip' },
+                    { label: 'Driver',          value: liveCur?.driver || '—' },
+                    { label: 'Purpose',         value: liveCur?.purpose || '—' },
+                    { label: 'Dispatch No',     value: liveCur?.dispatchNo || '—' },
+                    { label: 'Approved By',     value: liveCur?.approvedBy || '—' },
+                    { label: 'Coordinates',     value: liveCur ? `${liveCur.lat}°N, ${liveCur.lng}°E` : '—' },
+                  ].map(item => (
+                    <div key={item.label} style={{ marginBottom: 8, background: panelBg2, borderRadius: 8, padding: '7px 10px' }}>
+                      <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 2 }}>{item.label.toUpperCase()}</div>
+                      <div style={{ fontSize: 12, color: textPri }}>{item.value}</div>
+                    </div>
+                  ))}
+                  {liveCur && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 1, background: panelBg2, borderRadius: 8, padding: '7px 10px' }}>
+                        <div style={{ fontSize: 9, color: textSec, letterSpacing: '0.08em', marginBottom: 4 }}>TRIP PROGRESS</div>
+                        <div style={{ height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>
+                          <div style={{ height: '100%', width: `${liveCur.progress}%`, background: accent, borderRadius: 3 }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: accent, fontWeight: 700, marginTop: 4 }}>{liveCur.progress}%</div>
+                      </div>
+                      <div style={{ flex: 1, background: panelBg2, borderRadius: 8, padding: '7px 10px' }}>
+                        <div style={{ fontSize: 9, color: textSec, letterSpacing: '0.08em', marginBottom: 4 }}>FUEL LEVEL</div>
+                        <div style={{ height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>
+                          <div style={{ height: '100%', width: `${liveCur.fuel}%`,
+                            background: liveCur.fuel > 50 ? '#52c41a' : liveCur.fuel > 20 ? '#fa8c16' : '#ff4d4f',
+                            borderRadius: 3 }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: liveCur.fuel > 50 ? '#52c41a' : '#fa8c16', fontWeight: 700, marginTop: 4 }}>{liveCur.fuel}%</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'device-info' && selDev && (
+                <div>
+                  {[
+                    { label: 'Device Model',   value: selDev.deviceModel || '—' },
+                    { label: 'IMEI',           value: selDev.imei, mono: true },
+                    { label: 'VTS SIM (MSISDN)', value: selDev.msisdn, mono: true },
+                    { label: 'Client Mobile',  value: selDev.clientMobile || '—' },
+                    { label: 'Client ID',      value: selDev.clientId, mono: true },
+                    { label: 'Engine Status',  value: 'ON', color: '#52c41a' },
+                    { label: 'Tracking Status', value: 'Active / LIVE', color: '#52c41a' },
+                    { label: 'Current Speed',  value: `${selDev.speed ?? 0} km/h` },
+                  ].map(item => (
+                    <div key={item.label} style={{ marginBottom: 8, background: panelBg2, borderRadius: 8, padding: '7px 10px' }}>
+                      <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 2 }}>{item.label.toUpperCase()}</div>
+                      <div style={{ fontSize: 12, color: item.color || textPri, fontFamily: item.mono ? 'monospace' : 'inherit', fontWeight: item.color ? 700 : 400 }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Bottom refresh bar ────────────────────────────────── */}
+        <div style={{
+          padding: '8px 14px', borderTop: `1px solid ${border}`,
+          display: 'flex', alignItems: 'center', gap: 8, background: panelBg2,
+        }}>
+          <button
+            onClick={() => setAutoRefresh(v => !v)}
+            style={{
+              background: autoRefresh ? 'rgba(82,196,26,0.15)' : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${autoRefresh ? 'rgba(82,196,26,0.4)' : border}`,
+              borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+              color: autoRefresh ? '#52c41a' : textSec, fontSize: 11, fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+            {autoRefresh ? <PauseOutlined /> : <PlayCircleOutlined />}
+            {autoRefresh ? 'Auto ON' : 'Paused'}
+          </button>
+          <button
+            onClick={() => { fetchAll(); if (selectedReg) fetchOne(selectedReg); }}
+            style={{
+              background: 'rgba(22,119,255,0.12)', border: `1px solid rgba(22,119,255,0.3)`,
+              borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+              color: accent, fontSize: 11, display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+            <ReloadOutlined /> Refresh
+          </button>
+          <span style={{ marginLeft: 'auto', fontSize: 10, color: textSec }}>5s</span>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════
+         MAP AREA
+      ══════════════════════════════════════════════════════════ */}
+      <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+
+        {/* Layer switcher */}
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1000 }}>
+          <div style={{
+            background: 'rgba(13,17,23,0.88)', backdropFilter: 'blur(8px)',
+            border: `1px solid ${border}`, borderRadius: 10, padding: '3px 4px',
+            display: 'flex', gap: 2,
+          }}>
+            {Object.entries(TILES).map(([k, v]) => (
+              <button key={k} onClick={() => setMapLayer(k)}
+                style={{
+                  background: mapLayer === k ? accent : 'transparent',
+                  border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer',
+                  color: mapLayer === k ? '#fff' : textSec, fontSize: 10, fontWeight: 600,
+                  transition: 'all 0.2s',
+                }}>
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Live status overlay */}
+        <div style={{
+          position: 'absolute', top: 12, left: 12, zIndex: 1000,
+          background: 'rgba(13,17,23,0.88)', backdropFilter: 'blur(8px)',
+          border: `1px solid ${border}`, borderRadius: 10, padding: '6px 12px',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#52c41a', boxShadow: '0 0 8px #52c41a' }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#52c41a' }}>
+            {selectedReg ? `Tracking ${selectedReg}` : `${liveAll.length} vehicles live`}
+          </span>
+          {selectedReg && activeTab === 'live' && liveCur && (
+            <>
+              <span style={{ color: border, fontSize: 10 }}>|</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#52c41a' }}>
+                {typeof liveCur.speed === 'number' ? liveCur.speed.toFixed(1) : liveCur.speed} km/h
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* History stats overlay */}
+        {activeTab === 'history' && histData && (
+          <div style={{
+            position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 1000, display: 'flex', gap: 0, overflow: 'hidden',
+            background: 'rgba(13,17,23,0.92)', backdropFilter: 'blur(8px)',
+            border: `1px solid ${border}`, borderRadius: 12,
+          }}>
+            {[
+              { label: 'TOTAL', value: `${histData.totalKm} km`, color: accent },
+              { label: 'TRAVELED', value: `${histData.traveledKm} km`, color: '#52c41a' },
+              { label: 'POINTS', value: trackPts.length, color: '#fa8c16' },
+              { label: 'POINT', value: `${playIdx + 1} / ${trackPts.length}`, color: textSec },
+            ].map((s, i) => (
+              <div key={s.label} style={{
+                padding: '8px 16px', textAlign: 'center',
+                borderRight: i < 3 ? `1px solid ${border}` : 'none',
+              }}>
+                <div style={{ fontSize: 9, color: textSec, letterSpacing: '0.1em', marginBottom: 2 }}>{s.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: s.color }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <MapContainer
+          center={[23.8, 90.4]} zoom={7}
+          style={{ height: '100%', width: '100%' }}
+          scrollWheelZoom
+        >
+          <TileLayer key={mapLayer} url={TILES[mapLayer].url}
+            attribution={TILES[mapLayer].attribution ?? ''}
+            subdomains={mapLayer === 'dark' ? 'abcd' : 'abc'} />
+          <ResizeHandler trigger={selectedReg} />
+
+          {/* Fly to selected vehicle */}
+          {activeTab === 'live' && liveCur && <FlyTo lat={liveCur.lat} lng={liveCur.lng} zoom={14} />}
+          {activeTab === 'history' && trackPts.length > 1 && !curPt && <FitBounds points={trackPts} />}
+          {activeTab === 'history' && curPt && <FlyTo lat={curPt.lat} lng={curPt.lng} zoom={14} />}
+
+          {/* Live: single selected vehicle */}
+          {activeTab === 'live' && selectedReg && liveCur && (<>
+            {liveCur.trail?.length > 1 && (
+              <Polyline positions={liveCur.trail}
+                pathOptions={{ color: '#52c41a', weight: 4, opacity: 0.7, dashArray: '10 6' }} />
+            )}
+            <Marker position={[liveCur.lat, liveCur.lng]} icon={makeVehicleIcon('#52c41a', true)}>
+              <Popup className="dark-popup" minWidth={300}>
+                <DarkPopup v={liveCur} isSelected />
+              </Popup>
+            </Marker>
+          </>)}
+
+          {/* Live: all vehicles */}
+          {activeTab === 'live' && !selectedReg && (<>
+            {liveAll.filter(v => v.trail?.length > 1).map(v => (
+              <Polyline key={`trail-${v.key}`} positions={v.trail}
+                pathOptions={{ color: STATUS_COLOR[v.status] ?? '#52c41a', weight: 3, opacity: 0.5, dashArray: '8 5' }} />
+            ))}
+            {liveAll.map(v => (
+              <Marker key={v.key} position={[v.lat, v.lng]}
+                icon={makeVehicleIcon(STATUS_COLOR[v.status] ?? '#52c41a', false)}
+                eventHandlers={{ click: () => onSelect(v.vehicle) }}>
+                <Popup className="dark-popup" minWidth={300}>
+                  <DarkPopup v={v} />
+                </Popup>
+              </Marker>
+            ))}
+          </>)}
+
+          {/* History route */}
+          {activeTab === 'history' && trackPts.length > 0 && (<>
+            <Polyline positions={trackPts.map(p => [p.lat, p.lng])}
+              pathOptions={{ color: accent, weight: 3.5, opacity: 0.8 }} />
+            {trackPts.map((p, i) => (
+              <CircleMarker key={i} center={[p.lat, p.lng]}
+                radius={i === playIdx ? 10 : (dispMode === 'Dots' ? 2.5 : 4)}
+                pathOptions={{
+                  color:       i === playIdx ? '#ff4d4f' : (p.engineStatus === 'running' ? '#52c41a' : '#fa8c16'),
+                  fillColor:   i === playIdx ? '#ff4d4f' : accent,
+                  fillOpacity: 0.9, weight: i === playIdx ? 3 : 1.5,
+                }}>
+                <Popup className="dark-popup" minWidth={260}>
+                  <div style={{ padding: '12px 14px', color: textPri }}>
+                    <div style={{ fontSize: 10, color: '#58a6ff', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 4 }}>
+                      POINT #{i + 1}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: textPri, marginBottom: 6 }}>{p.timestamp}</div>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6 }}>
+                      <div style={{
+                        background: 'rgba(82,196,26,0.15)', border: '1px solid rgba(82,196,26,0.3)',
+                        borderRadius: 8, padding: '4px 10px', textAlign: 'center',
+                      }}>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: '#52c41a' }}>{p.speed}</div>
+                        <div style={{ fontSize: 10, color: textSec }}>km/h</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: textSec, marginBottom: 2 }}>POSITION</div>
+                        <div style={{ fontSize: 11, color: textPri, fontFamily: 'monospace' }}>{p.lat.toFixed(6)}, {p.lng.toFixed(6)}</div>
+                        <div style={{ fontSize: 11, color: textSec, marginTop: 4 }}>{p.location}</div>
+                      </div>
+                    </div>
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700,
+                      color: p.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
+                      background: p.engineStatus === 'running' ? 'rgba(82,196,26,0.12)' : 'rgba(250,140,22,0.12)',
+                      border: `1px solid ${p.engineStatus === 'running' ? 'rgba(82,196,26,0.3)' : 'rgba(250,140,22,0.3)'}`,
+                      borderRadius: 20, padding: '2px 10px',
+                    }}>
+                      ● {p.engineStatus === 'running' ? 'ENGINE ON' : 'ENGINE OFF'}
+                    </div>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
+          </>)}
+        </MapContainer>
+      </div>
     </div>
   );
 }
