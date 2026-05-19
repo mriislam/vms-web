@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
+import { decrypt, encrypt, encryptionEnabled } from '../utils/crypto';
 
 const apiClient = axios.create({
   baseURL: '/api',
@@ -7,18 +8,33 @@ const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach JWT to every request
-apiClient.interceptors.request.use((config) => {
+// Attach JWT + optionally encrypt request body
+apiClient.interceptors.request.use(async (config) => {
   const token = useAuthStore.getState().token;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  if (encryptionEnabled() && config.data !== undefined && config.data !== null) {
+    const plain = typeof config.data === 'string' ? config.data : JSON.stringify(config.data);
+    const enc = await encrypt(plain);
+    config.data = JSON.stringify({ enc });
   }
+
   return config;
 });
 
-// Handle 401 — clear auth and redirect to login
+// Handle 401 + optionally decrypt response body
 apiClient.interceptors.response.use(
-  (response) => response,
+  async (response) => {
+    if (encryptionEnabled() && response.data?.enc) {
+      try {
+        const plain = await decrypt(response.data.enc);
+        response.data = JSON.parse(plain);
+      } catch {
+        // not encrypted or decryption failed — leave as-is
+      }
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       useAuthStore.getState().clearAuth();

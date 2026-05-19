@@ -1,9 +1,43 @@
-import { CheckCircleOutlined, CloudServerOutlined, EyeInvisibleOutlined, EyeTwoTone, GlobalOutlined, LockOutlined, ReloadOutlined, SaveOutlined, SettingOutlined, WarningOutlined } from '@ant-design/icons';
 import {
-  Alert, Button, Card, Col, Divider, Form, Input, Progress, Row, Select, Spin, Switch, Tag, Typography, message,
+  CheckCircleOutlined,
+  CloudServerOutlined,
+  EyeInvisibleOutlined,
+  EyeTwoTone,
+  FireOutlined,
+  GlobalOutlined,
+  LockOutlined,
+  MailOutlined,
+  MessageOutlined,
+  MobileOutlined,
+  ReloadOutlined,
+  SaveOutlined,
+  SendOutlined,
+  SettingOutlined,
+  WarningOutlined,
+  WifiOutlined,
+} from '@ant-design/icons';
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Divider,
+  Form,
+  Input,
+  Progress,
+  Row,
+  Select,
+  Space,
+  Spin,
+  Switch,
+  Tabs,
+  Tag,
+  Typography,
+  message,
 } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '../services/apiClient';
+import { notificationSettingsService } from '../services/notificationSettingsService';
 import PageHeader from '../components/PageHeader';
 import { useUIStore } from '../stores/uiStore';
 
@@ -32,14 +66,21 @@ const DEFAULTS = {
 };
 
 export default function Settings() {
-  const isDark             = useUIStore((s) => s.isDark);
-  const toggleTheme        = useUIStore((s) => s.toggleTheme);
-  const sidebarCollapsed   = useUIStore((s) => s.sidebarCollapsed);
+  const isDark              = useUIStore((s) => s.isDark);
+  const toggleTheme         = useUIStore((s) => s.toggleTheme);
+  const sidebarCollapsed    = useUIStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
 
   const saved = loadSettings();
   const [generalForm] = Form.useForm();
   const [pwdForm]     = Form.useForm();
+  const [mapForm]     = Form.useForm();
+
+  // Notification provider forms
+  const [fcmForm]   = Form.useForm();
+  const [smsForm]   = Form.useForm();
+  const [emailForm] = Form.useForm();
+  const [waForm]    = Form.useForm();
 
   const [notifs, setNotifs] = useState({
     maintenance: saved.notifMaintenance ?? DEFAULTS.notifMaintenance,
@@ -51,30 +92,67 @@ export default function Settings() {
   const [compactTables, setCompactTables] = useState(saved.compactTables ?? false);
   const [version] = useState('v1.0.0');
 
-  const [mapForm] = Form.useForm();
   const [googleKeyVisible, setGoogleKeyVisible] = useState(false);
-  const [googleKeySaved, setGoogleKeySaved] = useState(!!saved.googleMapsKey);
+  const [googleKeySaved, setGoogleKeySaved]     = useState(!!saved.googleMapsKey);
 
-  function saveMapSettings() {
-    mapForm.validateFields().then((values) => {
-      const prev = loadSettings();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...prev, ...values }));
-      setGoogleKeySaved(!!values.googleMapsKey);
-      message.success('Map settings saved');
-    });
+  // Notification providers
+  const [providerEnabled, setProviderEnabled] = useState({ fcm: false, sms: false, email: false, whatsapp: false });
+  const [testTarget,  setTestTarget]  = useState({ fcm: '', sms: '', email: '', whatsapp: '' });
+  const [testLoading, setTestLoading] = useState({});
+  const [savingCh, setSavingCh]       = useState(null);
+  const [smsProvider, setSmsProvider]   = useState('twilio');
+  const [waProvider,  setWaProvider]    = useState('twilio');
+
+  // Load provider configs from backend
+  useEffect(() => {
+    notificationSettingsService.getAll()
+      .then((res) => {
+        const list = res.data?.data ?? res.data ?? [];
+        const enabled = { fcm: false, sms: false, email: false, whatsapp: false };
+        list.forEach((s) => {
+          enabled[s.channel] = s.enabled ?? false;
+          const cfg = JSON.parse(s.configJson ?? '{}');
+          if (s.channel === 'fcm')      { fcmForm.setFieldsValue(cfg); }
+          if (s.channel === 'sms')      { smsForm.setFieldsValue(cfg); setSmsProvider(cfg.provider ?? 'twilio'); }
+          if (s.channel === 'email')    { emailForm.setFieldsValue({ useTls: true, ...cfg }); }
+          if (s.channel === 'whatsapp') { waForm.setFieldsValue(cfg); setWaProvider(cfg.provider ?? 'twilio'); }
+        });
+        setProviderEnabled(enabled);
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function saveChannel(channel, form) {
+    try {
+      const values = await form.validateFields();
+      setSavingCh(channel);
+      await notificationSettingsService.save(channel, {
+        enabled: providerEnabled[channel],
+        configJson: JSON.stringify(values),
+      });
+      message.success(`${channel.toUpperCase()} settings saved`);
+    } catch {
+      message.error('Save failed — check required fields');
+    } finally {
+      setSavingCh(null);
+    }
   }
 
-  function clearGoogleKey() {
-    mapForm.setFieldValue('googleMapsKey', '');
-    const prev = loadSettings();
-    delete prev.googleMapsKey;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(prev));
-    setGoogleKeySaved(false);
-    message.success('Google Maps key removed');
+  async function testChannel(channel) {
+    setTestLoading((p) => ({ ...p, [channel]: true }));
+    try {
+      const res = await notificationSettingsService.test(channel, testTarget[channel]);
+      const result = res.data?.data ?? res.data?.message ?? 'Sent successfully';
+      message.success(`Test: ${result}`);
+    } catch (e) {
+      message.error(e.response?.data?.message ?? 'Test failed — check configuration');
+    } finally {
+      setTestLoading((p) => ({ ...p, [channel]: false }));
+    }
   }
 
-  /* ── System Utilization (real data from backend) ─────────────── */
-  const [sysStats, setSysStats]       = useState(null);
+  /* ── System Utilization ─────────────────────────────────────────── */
+  const [sysStats, setSysStats]           = useState(null);
   const [sysRefreshing, setSysRefreshing] = useState(false);
   const sysTimer = useRef(null);
 
@@ -97,8 +175,8 @@ export default function Settings() {
     return () => clearInterval(sysTimer.current);
   }, [fetchSysStats]);
 
-  const cpuPct    = sysStats?.cpu ?? 0;
-  const ramPct    = sysStats?.ramPct ?? 0;
+  const cpuPct    = sysStats?.cpu     ?? 0;
+  const ramPct    = sysStats?.ramPct  ?? 0;
   const diskPct   = sysStats?.diskPct ?? 0;
   const cpuColor  = cpuPct  > 80 ? '#ff4d4f' : cpuPct  > 50 ? '#fa8c16' : '#52c41a';
   const ramColor  = ramPct  > 80 ? '#ff4d4f' : ramPct  > 50 ? '#fa8c16' : '#1677ff';
@@ -142,9 +220,275 @@ export default function Settings() {
     });
   }
 
-  function handleNotifChange(key, val) {
-    setNotifs((prev) => ({ ...prev, [key]: val }));
+  function saveMapSettings() {
+    mapForm.validateFields().then((values) => {
+      const prev = loadSettings();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...prev, ...values }));
+      setGoogleKeySaved(!!values.googleMapsKey);
+      message.success('Map settings saved');
+    });
   }
+
+  function clearGoogleKey() {
+    mapForm.setFieldValue('googleMapsKey', '');
+    const prev = loadSettings();
+    delete prev.googleMapsKey;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(prev));
+    setGoogleKeySaved(false);
+    message.success('Google Maps key removed');
+  }
+
+  /* ── Provider tab helper ─────────────────────────────────────────── */
+  function ProviderHeader({ channel, form, color, icon }) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Space>
+          <span style={{ color, fontSize: 16 }}>{icon}</span>
+          <Switch
+            checked={providerEnabled[channel]}
+            onChange={(v) => setProviderEnabled((p) => ({ ...p, [channel]: v }))}
+            checkedChildren="ON"
+            unCheckedChildren="OFF"
+          />
+          <Text style={{ fontSize: 12 }} type="secondary">
+            {providerEnabled[channel] ? 'Channel enabled' : 'Channel disabled'}
+          </Text>
+        </Space>
+        <Button
+          type="primary"
+          size="small"
+          icon={<SaveOutlined />}
+          loading={savingCh === channel}
+          onClick={() => saveChannel(channel, form)}
+        >
+          Save
+        </Button>
+      </div>
+    );
+  }
+
+  function TestRow({ channel, placeholder }) {
+    return (
+      <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
+        <Input
+          size="small"
+          placeholder={placeholder}
+          value={testTarget[channel]}
+          onChange={(e) => setTestTarget((p) => ({ ...p, [channel]: e.target.value }))}
+          style={{ flex: 1 }}
+        />
+        <Button
+          size="small"
+          icon={<SendOutlined />}
+          loading={testLoading[channel]}
+          disabled={!providerEnabled[channel]}
+          onClick={() => testChannel(channel)}
+        >
+          Send Test
+        </Button>
+      </div>
+    );
+  }
+
+  const providerTabs = [
+    {
+      key: 'email',
+      label: <span><MailOutlined /> Email</span>,
+      children: (
+        <>
+          <ProviderHeader channel="email" form={emailForm} color="#52c41a" icon={<MailOutlined />} />
+          <Form form={emailForm} layout="vertical" size="small">
+            <Row gutter={12}>
+              <Col xs={24} sm={16}>
+                <Form.Item name="host" label="SMTP Host" rules={[{ required: true }]}>
+                  <Input placeholder="smtp.gmail.com" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Form.Item name="port" label="Port" rules={[{ required: true }]}>
+                  <Input placeholder="587" type="number" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="username" label="Username / Login" rules={[{ required: true }]}>
+                  <Input placeholder="you@gmail.com" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="password" label="SMTP Password">
+                  <Input.Password placeholder="App password or SMTP password" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="fromEmail" label="From Email">
+                  <Input placeholder="noreply@yourdomain.com" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="fromName" label="From Name">
+                  <Input placeholder="VMS System" />
+                </Form.Item>
+              </Col>
+              <Col xs={24}>
+                <Form.Item name="useTls" label="Use TLS (STARTTLS)" valuePropName="checked">
+                  <Switch checkedChildren="TLS" unCheckedChildren="SSL" />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Form>
+          <Alert type="info" showIcon style={{ borderRadius: 8, marginTop: 4 }}
+            message={<Text style={{ fontSize: 11 }}>For Gmail: enable 2FA and use an <b>App Password</b>, not your account password. Port 587 + TLS is recommended.</Text>}
+          />
+          <TestRow channel="email" placeholder="recipient@example.com" />
+        </>
+      ),
+    },
+    {
+      key: 'fcm',
+      label: <span><FireOutlined /> FCM Push</span>,
+      children: (
+        <>
+          <ProviderHeader channel="fcm" form={fcmForm} color="#fa8c16" icon={<FireOutlined />} />
+          <Form form={fcmForm} layout="vertical" size="small">
+            <Form.Item name="serverKey" label="FCM Server Key (Legacy API)" rules={[{ required: true }]}>
+              <Input.Password placeholder="AAAA…" />
+            </Form.Item>
+            <Form.Item name="senderId" label="Sender ID">
+              <Input placeholder="123456789012" />
+            </Form.Item>
+            <Form.Item name="testToken" label="Default Test Device Token">
+              <Input placeholder="Device FCM token for default test target" />
+            </Form.Item>
+          </Form>
+          <Alert type="info" showIcon style={{ borderRadius: 8, marginTop: 4 }}
+            message={<Text style={{ fontSize: 11 }}>Get the Server Key from Firebase Console → Project Settings → Cloud Messaging. The test token should be a real FCM device registration token.</Text>}
+          />
+          <TestRow channel="fcm" placeholder="Device FCM token (overrides default)" />
+        </>
+      ),
+    },
+    {
+      key: 'sms',
+      label: <span><MobileOutlined /> SMS</span>,
+      children: (
+        <>
+          <ProviderHeader channel="sms" form={smsForm} color="#1677ff" icon={<MobileOutlined />} />
+          <Form form={smsForm} layout="vertical" size="small">
+            <Form.Item name="provider" label="SMS Provider">
+              <Select
+                value={smsProvider}
+                onChange={(v) => { setSmsProvider(v); smsForm.setFieldValue('provider', v); }}
+                options={[
+                  { value: 'twilio', label: 'Twilio' },
+                  { value: 'custom', label: 'Custom HTTP API' },
+                ]}
+              />
+            </Form.Item>
+            <Row gutter={12}>
+              <Col xs={24} sm={12}>
+                <Form.Item name="apiKey" label={smsProvider === 'twilio' ? 'Account SID' : 'API Key'} rules={[{ required: true }]}>
+                  <Input placeholder={smsProvider === 'twilio' ? 'ACxxxxxxx…' : 'Your API key'} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="apiSecret" label={smsProvider === 'twilio' ? 'Auth Token' : 'API Secret'}>
+                  <Input.Password placeholder="••••••••" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="fromNumber" label="From Number">
+                  <Input placeholder="+14155552671" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="testNumber" label="Default Test Number">
+                  <Input placeholder="+8801700000000" />
+                </Form.Item>
+              </Col>
+              {smsProvider === 'custom' && (
+                <Col xs={24}>
+                  <Form.Item name="apiUrl" label="API Endpoint URL" rules={[{ required: true }]}>
+                    <Input placeholder="https://sms-gateway.example.com/send" />
+                  </Form.Item>
+                </Col>
+              )}
+            </Row>
+          </Form>
+          <TestRow channel="sms" placeholder="+8801XXXXXXXXX (overrides default)" />
+        </>
+      ),
+    },
+    {
+      key: 'whatsapp',
+      label: <span><WifiOutlined /> WhatsApp</span>,
+      children: (
+        <>
+          <ProviderHeader channel="whatsapp" form={waForm} color="#25D366" icon={<MessageOutlined />} />
+          <Form form={waForm} layout="vertical" size="small">
+            <Form.Item name="provider" label="WhatsApp Provider">
+              <Select
+                value={waProvider}
+                onChange={(v) => { setWaProvider(v); waForm.setFieldValue('provider', v); }}
+                options={[
+                  { value: 'twilio', label: 'Twilio WhatsApp' },
+                  { value: 'meta',   label: 'Meta WhatsApp Business API' },
+                ]}
+              />
+            </Form.Item>
+            {waProvider === 'twilio' && (
+              <Row gutter={12}>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="apiKey" label="Twilio Account SID" rules={[{ required: true }]}>
+                    <Input placeholder="ACxxxxxxx…" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="apiSecret" label="Auth Token">
+                    <Input.Password placeholder="••••••••" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="fromNumber" label="From (WhatsApp Sandbox Number)">
+                    <Input placeholder="+14155238886" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="testNumber" label="Default Test Number">
+                    <Input placeholder="+8801700000000" />
+                  </Form.Item>
+                </Col>
+              </Row>
+            )}
+            {waProvider === 'meta' && (
+              <Row gutter={12}>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="phoneNumberId" label="Phone Number ID" rules={[{ required: true }]}>
+                    <Input placeholder="1234567890" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="testNumber" label="Default Test Number">
+                    <Input placeholder="+8801700000000" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24}>
+                  <Form.Item name="accessToken" label="Permanent Access Token" rules={[{ required: true }]}>
+                    <Input.Password placeholder="EAAxxxxx…" />
+                  </Form.Item>
+                </Col>
+              </Row>
+            )}
+          </Form>
+          {waProvider === 'meta' && (
+            <Alert type="info" showIcon style={{ borderRadius: 8, marginTop: 4 }}
+              message={<Text style={{ fontSize: 11 }}>Get the Phone Number ID and Access Token from Meta Business → WhatsApp → API Setup. Use a permanent token, not a temporary one.</Text>}
+            />
+          )}
+          <TestRow channel="whatsapp" placeholder="+8801XXXXXXXXX (overrides default)" />
+        </>
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -181,7 +525,6 @@ export default function Settings() {
           >
             <Spin spinning={!sysStats}>
               <Row gutter={[16, 16]}>
-                {/* CPU */}
                 <Col xs={24} sm={12} lg={6}>
                   <div style={{ padding: '8px 0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -192,7 +535,6 @@ export default function Settings() {
                     <Text type="secondary" style={{ fontSize: 11 }}>{sysStats?.availableProcessors ?? '—'}-thread</Text>
                   </div>
                 </Col>
-                {/* RAM */}
                 <Col xs={24} sm={12} lg={6}>
                   <div style={{ padding: '8px 0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -203,7 +545,6 @@ export default function Settings() {
                     <Text type="secondary" style={{ fontSize: 11 }}>{fmtBytes(sysStats?.ramUsed)} used of {fmtBytes(sysStats?.ramTotal)}</Text>
                   </div>
                 </Col>
-                {/* Disk */}
                 <Col xs={24} sm={12} lg={6}>
                   <div style={{ padding: '8px 0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -214,7 +555,6 @@ export default function Settings() {
                     <Text type="secondary" style={{ fontSize: 11 }}>{fmtBytes(sysStats?.diskUsed)} used of {fmtBytes(sysStats?.diskTotal)}</Text>
                   </div>
                 </Col>
-                {/* JVM Heap */}
                 <Col xs={24} sm={12} lg={6}>
                   <div style={{ padding: '8px 0' }}>
                     <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 6 }}>Server Uptime</Text>
@@ -226,7 +566,6 @@ export default function Settings() {
 
               <Divider style={{ margin: '12px 0' }} />
 
-              {/* Server Info */}
               <Row gutter={[24, 12]}>
                 {[
                   { label: 'Local IP',    value: sysStats?.ip,          color: '#1677ff' },
@@ -300,9 +639,9 @@ export default function Settings() {
                 <Col span={12}>
                   <Form.Item name="timezone" label="Timezone">
                     <Select options={[
-                      { value: 'Asia/Dhaka',    label: 'Asia/Dhaka (UTC+6)' },
-                      { value: 'Asia/Kolkata',  label: 'Asia/Kolkata (UTC+5:30)' },
-                      { value: 'UTC',           label: 'UTC' },
+                      { value: 'Asia/Dhaka',   label: 'Asia/Dhaka (UTC+6)' },
+                      { value: 'Asia/Kolkata', label: 'Asia/Kolkata (UTC+5:30)' },
+                      { value: 'UTC',          label: 'UTC' },
                     ]} />
                   </Form.Item>
                 </Col>
@@ -320,24 +659,9 @@ export default function Settings() {
             extra={<Button size="small" type="primary" icon={<SaveOutlined />} onClick={saveAppearance}>Save</Button>}
           >
             {[
-              {
-                label: 'Dark Mode',
-                desc: 'Use dark theme across the app',
-                checked: isDark,
-                onChange: toggleTheme,
-              },
-              {
-                label: 'Compact Tables',
-                desc: 'Show more rows with reduced padding',
-                checked: compactTables,
-                onChange: (v) => setCompactTables(v),
-              },
-              {
-                label: 'Sidebar Collapsed by Default',
-                desc: 'Start with a compact sidebar on load',
-                checked: sidebarCollapsed,
-                onChange: setSidebarCollapsed,
-              },
+              { label: 'Dark Mode',                    desc: 'Use dark theme across the app',              checked: isDark,          onChange: toggleTheme },
+              { label: 'Compact Tables',               desc: 'Show more rows with reduced padding',        checked: compactTables,   onChange: (v) => setCompactTables(v) },
+              { label: 'Sidebar Collapsed by Default', desc: 'Start with a compact sidebar on load',      checked: sidebarCollapsed, onChange: setSidebarCollapsed },
             ].map((item, i, arr) => (
               <div key={item.label}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
@@ -353,10 +677,10 @@ export default function Settings() {
           </Card>
         </Col>
 
-        {/* Notifications */}
+        {/* In-app Notification Toggles */}
         <Col xs={24} lg={12}>
           <Card
-            title="Notifications"
+            title="In-App Notifications"
             size="small"
             style={{ borderRadius: 12 }}
             extra={<Button size="small" type="primary" icon={<SaveOutlined />} onClick={saveNotifications}>Save</Button>}
@@ -373,7 +697,7 @@ export default function Settings() {
                     <Text strong>{n.label}</Text>
                     <div><Text type="secondary" style={{ fontSize: 12 }}>{n.desc}</Text></div>
                   </div>
-                  <Switch checked={notifs[n.key]} onChange={(v) => handleNotifChange(n.key, v)} />
+                  <Switch checked={notifs[n.key]} onChange={(v) => setNotifs((p) => ({ ...p, [n.key]: v }))} />
                 </div>
                 {i < arr.length - 1 && <Divider style={{ margin: '4px 0' }} />}
               </div>
@@ -418,9 +742,7 @@ export default function Settings() {
                 </Button>
               </Form.Item>
             </Form>
-
             <Divider style={{ margin: '12px 0' }} />
-
             <div>
               <Text type="secondary" style={{ fontSize: 12 }}>Session</Text>
               <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
@@ -428,6 +750,34 @@ export default function Settings() {
                 <Text type="secondary" style={{ fontSize: 12 }}>Last login: Today, 09:12 AM</Text>
               </div>
             </div>
+          </Card>
+        </Col>
+
+        {/* Notification Providers */}
+        <Col xs={24}>
+          <Card
+            title={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <SendOutlined style={{ color: '#722ed1' }} />
+                <span>Notification Providers</span>
+                <Tag color="purple" style={{ fontSize: 10 }}>Server-side</Tag>
+              </div>
+            }
+            size="small"
+            style={{ borderRadius: 12 }}
+          >
+            <Alert
+              type="warning"
+              showIcon
+              style={{ borderRadius: 8, marginBottom: 16 }}
+              message={
+                <Text style={{ fontSize: 11 }}>
+                  These settings are stored in the database and used by the backend to send notifications.
+                  Enable a channel and fill in the credentials, then click <b>Save</b> before using <b>Send Test</b>.
+                </Text>
+              }
+            />
+            <Tabs items={providerTabs} type="card" size="small" />
           </Card>
         </Col>
 
@@ -451,11 +801,11 @@ export default function Settings() {
                   layout="vertical"
                   size="small"
                   initialValues={{
-                    googleMapsKey:  saved.googleMapsKey  ?? '',
-                    mapProvider:    saved.mapProvider    ?? 'openstreetmap',
-                    defaultLat:     saved.defaultLat     ?? '23.8',
-                    defaultLng:     saved.defaultLng     ?? '90.4',
-                    defaultZoom:    saved.defaultZoom    ?? '7',
+                    googleMapsKey: saved.googleMapsKey  ?? '',
+                    mapProvider:   saved.mapProvider    ?? 'openstreetmap',
+                    defaultLat:    saved.defaultLat     ?? '23.8',
+                    defaultLng:    saved.defaultLng     ?? '90.4',
+                    defaultZoom:   saved.defaultZoom    ?? '7',
                   }}
                 >
                   <Form.Item name="mapProvider" label="Map Provider">
@@ -559,7 +909,6 @@ export default function Settings() {
             </Row>
           </Card>
         </Col>
-
       </Row>
     </div>
   );
