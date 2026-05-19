@@ -464,6 +464,15 @@ export default function VTSMap() {
     return 0;
   }, [trackPts, playIdx]);
 
+  /* Engine-off stop points (capped at 40 for performance) */
+  const stopMarkers = useMemo(() => {
+    if (trackPts.length < 2) return [];
+    return trackPts
+      .map((p, i) => ({ ...p, origIdx: i }))
+      .filter(p => p.engineStatus !== 'running' && p.origIdx > 0 && p.origIdx < trackPts.length - 1)
+      .slice(0, 40);
+  }, [trackPts]);
+
   const filteredDevices = devices.filter(d => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -850,6 +859,19 @@ export default function VTSMap() {
                         />
                         <button onClick={() => { setPlayIdx(0); setPlaying(false); clearInterval(playRef.current); }}
                           style={{ background: 'none', border: 'none', color: textSec, cursor: 'pointer', fontSize: 14 }}>↺</button>
+                        <button
+                          onClick={() => {
+                            if (leafletMap && trackPts.length > 1) {
+                              leafletMap.fitBounds(
+                                L.latLngBounds(trackPts.map(p => [p.lat, p.lng])),
+                                { padding: [50, 50], animate: true }
+                              );
+                            }
+                          }}
+                          title="Fit full route"
+                          style={{ background: 'none', border: 'none', color: accent, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                          ⛶
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1056,14 +1078,15 @@ export default function VTSMap() {
             border: `1px solid ${border}`, borderRadius: 12,
           }}>
             {[
-              { label: 'TOTAL', value: `${histData.totalKm} km`, color: accent },
-              { label: 'TRAVELED', value: `${histData.traveledKm} km`, color: '#52c41a' },
-              { label: 'POINTS', value: trackPts.length, color: '#fa8c16' },
-              { label: 'POINT', value: `${playIdx + 1} / ${trackPts.length}`, color: textSec },
+              { label: 'TOTAL',   value: `${histData.totalKm} km`,              color: accent },
+              { label: 'TRAVELED', value: `${histData.traveledKm} km`,           color: '#52c41a' },
+              { label: 'SPEED',   value: curPt ? `${curPt.speed} km/h` : '—',   color: curPt && curPt.speed > 0 ? '#52c41a' : textSec },
+              { label: 'POINTS',  value: trackPts.length,                        color: '#fa8c16' },
+              { label: 'POINT',   value: `${playIdx + 1} / ${trackPts.length}`,  color: textSec },
             ].map((s, i) => (
               <div key={s.label} style={{
                 padding: '8px 16px', textAlign: 'center',
-                borderRight: i < 3 ? `1px solid ${border}` : 'none',
+                borderRight: i < 4 ? `1px solid ${border}` : 'none',
               }}>
                 <div style={{ fontSize: 9, color: textSec, letterSpacing: '0.1em', marginBottom: 2 }}>{s.label}</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -1086,8 +1109,7 @@ export default function VTSMap() {
 
           {/* Fly to selected vehicle */}
           {activeTab === 'live' && liveCur && <FlyTo lat={liveCur.lat} lng={liveCur.lng} zoom={13} />}
-          {activeTab === 'history' && trackPts.length > 1 && !playing && <FitBounds points={trackPts} />}
-          {activeTab === 'history' && curPt && playing && <FlyTo lat={curPt.lat} lng={curPt.lng} zoom={14} />}
+          {activeTab === 'history' && trackPts.length > 1 && <FitBounds points={trackPts} key={histData} />}
 
           {/* Live: single selected vehicle — smooth GPS-style movement */}
           {activeTab === 'live' && selectedReg && liveCur && (<>
@@ -1141,26 +1163,58 @@ export default function VTSMap() {
 
           {/* History route */}
           {activeTab === 'history' && trackPts.length > 0 && (<>
-            {/* Full path polyline */}
-            <Polyline positions={trackPts.map(p => [p.lat, p.lng])}
-              pathOptions={{ color: accent, weight: 3.5, opacity: 0.85 }} />
 
-            {/* Small dot markers for all track points */}
-            {trackPts.map((p, i) => i !== playIdx && (
-              <CircleMarker key={i} center={[p.lat, p.lng]}
-                radius={3}
-                pathOptions={{
-                  color: p.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
-                  fillColor: p.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
-                  fillOpacity: 0.75, weight: 1,
-                }}>
-                <Popup className="dark-popup" minWidth={260}>
-                  <HistoryPointPopup p={p} i={i} />
+            {/* Remaining path — blue dashed */}
+            <Polyline
+              key={`hist-remain-${selectedReg}`}
+              positions={trackPts.slice(Math.max(0, playIdx)).map(p => [p.lat, p.lng])}
+              pathOptions={{ color: '#1677ff', weight: 3, opacity: 0.45, dashArray: '10 7' }} />
+
+            {/* Traveled path — green solid (only after first move) */}
+            {playIdx > 0 && (
+              <Polyline
+                key={`hist-traveled-${selectedReg}`}
+                positions={trackPts.slice(0, playIdx + 1).map(p => [p.lat, p.lng])}
+                pathOptions={{ color: '#52c41a', weight: 4, opacity: 0.9 }} />
+            )}
+
+            {/* Start marker — green circle */}
+            <CircleMarker center={[trackPts[0].lat, trackPts[0].lng]} radius={8}
+              pathOptions={{ color: '#fff', fillColor: '#52c41a', fillOpacity: 1, weight: 2 }}>
+              <Popup className="dark-popup" minWidth={200}>
+                <div style={{ padding: '8px 12px', color: '#e6edf3' }}>
+                  <div style={{ fontSize: 10, color: '#52c41a', fontWeight: 700, marginBottom: 4 }}>START</div>
+                  <div style={{ fontSize: 12 }}>{trackPts[0].timestamp}</div>
+                  <div style={{ fontSize: 11, color: '#8b949e', fontFamily: 'monospace', marginTop: 2 }}>{trackPts[0].lat?.toFixed(6)}, {trackPts[0].lng?.toFixed(6)}</div>
+                </div>
+              </Popup>
+            </CircleMarker>
+
+            {/* End marker — red circle */}
+            {trackPts.length > 1 && (
+              <CircleMarker center={[trackPts[trackPts.length - 1].lat, trackPts[trackPts.length - 1].lng]} radius={8}
+                pathOptions={{ color: '#fff', fillColor: '#ff4d4f', fillOpacity: 1, weight: 2 }}>
+                <Popup className="dark-popup" minWidth={200}>
+                  <div style={{ padding: '8px 12px', color: '#e6edf3' }}>
+                    <div style={{ fontSize: 10, color: '#ff4d4f', fontWeight: 700, marginBottom: 4 }}>END</div>
+                    <div style={{ fontSize: 12 }}>{trackPts[trackPts.length - 1].timestamp}</div>
+                    <div style={{ fontSize: 11, color: '#8b949e', fontFamily: 'monospace', marginTop: 2 }}>{trackPts[trackPts.length - 1].lat?.toFixed(6)}, {trackPts[trackPts.length - 1].lng?.toFixed(6)}</div>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            )}
+
+            {/* Engine-off stop markers (sparse, capped at 40) */}
+            {stopMarkers.map((p, i) => (
+              <CircleMarker key={`stop-${i}`} center={[p.lat, p.lng]} radius={4}
+                pathOptions={{ color: '#fa8c16', fillColor: '#fa8c16', fillOpacity: 0.85, weight: 1 }}>
+                <Popup className="dark-popup" minWidth={220}>
+                  <HistoryPointPopup p={p} i={p.origIdx} />
                 </Popup>
               </CircleMarker>
             ))}
 
-            {/* Vehicle icon at current playback position — smooth movement + heading */}
+            {/* Vehicle icon at current playback position */}
             {curPt && (
               <SmoothMarker
                 key={`hist-${selectedReg}`}
@@ -1172,7 +1226,7 @@ export default function VTSMap() {
                   true,
                   histBearing
                 )}
-                duration={Math.max(playSpeed * 0.85, 100)}
+                duration={Math.max(playSpeed - 20, 80)}
               >
                 <Popup className="dark-popup" minWidth={260}>
                   <HistoryPointPopup p={curPt} i={playIdx} />
