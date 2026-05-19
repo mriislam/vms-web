@@ -13,7 +13,8 @@ apiClient.interceptors.request.use(async (config) => {
   const token = useAuthStore.getState().token;
   if (token) config.headers.Authorization = `Bearer ${token}`;
 
-  if (encryptionEnabled() && config.data !== undefined && config.data !== null) {
+  const isAuthEndpoint = config.url?.includes('/auth/');
+  if (encryptionEnabled() && !isAuthEndpoint && config.data !== undefined && config.data !== null) {
     const plain = typeof config.data === 'string' ? config.data : JSON.stringify(config.data);
     const enc = await encrypt(plain);
     config.data = JSON.stringify({ enc });
@@ -25,7 +26,8 @@ apiClient.interceptors.request.use(async (config) => {
 // Handle 401 + optionally decrypt response body
 apiClient.interceptors.response.use(
   async (response) => {
-    if (encryptionEnabled() && response.data?.enc) {
+    const isAuthResponse = response.config?.url?.includes('/auth/');
+    if (encryptionEnabled() && !isAuthResponse && response.data?.enc) {
       try {
         const plain = await decrypt(response.data.enc);
         response.data = JSON.parse(plain);
