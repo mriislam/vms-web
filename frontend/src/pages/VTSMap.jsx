@@ -166,37 +166,63 @@ function ResizeHandler({ trigger }) {
 }
 
 /* ── History point popup — module scope to avoid reconciler crash ── */
-function HistoryPointPopup({ p, i }) {
-  const textPri = '#e6edf3';
-  const textSec = '#8b949e';
+function HistoryPointPopup({ p, i, dark = true }) {
+  const textPri  = dark ? '#e6edf3' : '#1f2937';
+  const textSec  = dark ? '#8b949e' : '#6b7280';
+  const bg       = dark ? '#0d1117' : '#ffffff';
+  const divLine  = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
+  const engineOn = p.engineStatus === 'running';
+  const engColor = engineOn ? '#52c41a' : '#fa8c16';
+  const spd      = parseFloat(p.speed) || 0;
+  const spdColor = spd > 80 ? '#ff4d4f' : spd > 40 ? '#fa8c16' : '#52c41a';
+
   return (
-    <div style={{ padding: '12px 14px', color: textPri }}>
-      <div style={{ fontSize: 10, color: '#58a6ff', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 4 }}>
-        POINT #{i + 1}
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: textPri, marginBottom: 6 }}>{p.timestamp}</div>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6 }}>
-        <div style={{
-          background: 'rgba(82,196,26,0.15)', border: '1px solid rgba(82,196,26,0.3)',
-          borderRadius: 8, padding: '4px 10px', textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 20, fontWeight: 900, color: '#52c41a' }}>{p.speed}</div>
-          <div style={{ fontSize: 10, color: textSec }}>km/h</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 10, color: textSec, marginBottom: 2 }}>POSITION</div>
-          <div style={{ fontSize: 11, color: textPri, fontFamily: 'monospace' }}>{p.lat?.toFixed(6)}, {p.lng?.toFixed(6)}</div>
-          {p.location && <div style={{ fontSize: 11, color: textSec, marginTop: 4 }}>{p.location}</div>}
-        </div>
-      </div>
+    <div style={{ minWidth: 300, fontFamily: 'system-ui,-apple-system,sans-serif', color: textPri, background: bg, borderRadius: 12 }}>
+
+      {/* Header */}
       <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700,
-        color: p.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
-        background: p.engineStatus === 'running' ? 'rgba(82,196,26,0.12)' : 'rgba(250,140,22,0.12)',
-        border: `1px solid ${p.engineStatus === 'running' ? 'rgba(82,196,26,0.3)' : 'rgba(250,140,22,0.3)'}`,
-        borderRadius: 20, padding: '2px 10px',
+        padding: '10px 14px 8px', borderBottom: `1px solid ${divLine}`,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
-        ● {p.engineStatus === 'running' ? 'ENGINE ON' : 'ENGINE OFF'}
+        <div>
+          <div style={{ fontSize: 9, color: '#58a6ff', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 2 }}>POINT #{i + 1}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: textPri }}>{p.timestamp}</div>
+        </div>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
+          background: `${engColor}18`, border: `1px solid ${engColor}50`,
+          borderRadius: 20, padding: '3px 8px',
+        }}>
+          <div style={{ width: 5, height: 5, borderRadius: '50%', background: engColor }} />
+          <span style={{ fontSize: 9, fontWeight: 700, color: engColor }}>{engineOn ? 'ENGINE ON' : 'ENGINE OFF'}</span>
+        </div>
+      </div>
+
+      {/* Body: speed (left) + position & location (right) */}
+      <div style={{ display: 'flex' }}>
+        <div style={{
+          padding: '12px 14px', width: 90, flexShrink: 0, textAlign: 'center',
+          borderRight: `1px solid ${divLine}`,
+          background: `linear-gradient(180deg,${spdColor}15 0%,transparent 100%)`,
+        }}>
+          <div style={{ fontSize: 8, color: spdColor, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 3 }}>SPEED</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: spdColor, lineHeight: 1 }}>{p.speed}</div>
+          <div style={{ fontSize: 10, color: textSec, marginTop: 2 }}>km/h</div>
+        </div>
+        <div style={{ flex: 1, padding: '12px 14px', minWidth: 0 }}>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 8, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>POSITION</div>
+            <div style={{ fontSize: 11, color: textPri, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+              {p.lat?.toFixed(6)}, {p.lng?.toFixed(6)}
+            </div>
+          </div>
+          {p.location && (
+            <div>
+              <div style={{ fontSize: 8, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>LOCATION</div>
+              <div style={{ fontSize: 11, color: textPri, lineHeight: 1.4 }}>{p.location}</div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -323,7 +349,7 @@ export default function VTSMap() {
   const [histLoading, setHistLoading] = useState(false);
   const [playIdx,     setPlayIdx]     = useState(0);
   const [playing,     setPlaying]     = useState(false);
-  const [playSpeed,   setPlaySpeed]   = useState(200);
+  const [playSpeed,   setPlaySpeed]   = useState(400);
   const [dispMode,    setDispMode]    = useState('Markers');
 
   const [liveBearing, setLiveBearing] = useState(0);
@@ -851,10 +877,10 @@ export default function VTSMap() {
                         <span style={{ fontSize: 11, color: textSec }}>{playIdx + 1} / {trackPts.length}</span>
                         <Select size="small" value={playSpeed} onChange={setPlaySpeed} style={{ width: 100 }}
                           options={[
-                            { value: 500, label: '0.5× Speed' },
-                            { value: 200, label: '1× Speed' },
-                            { value: 100, label: '2× Speed' },
-                            { value: 50,  label: '4× Speed' },
+                            { value: 800, label: '0.5× Speed' },
+                            { value: 400, label: '1× Speed' },
+                            { value: 200, label: '2× Speed' },
+                            { value: 80,  label: '4× Speed' },
                           ]}
                         />
                         <button onClick={() => { setPlayIdx(0); setPlaying(false); clearInterval(playRef.current); }}
@@ -1181,11 +1207,32 @@ export default function VTSMap() {
             {/* Start marker — green circle */}
             <CircleMarker center={[trackPts[0].lat, trackPts[0].lng]} radius={8}
               pathOptions={{ color: '#fff', fillColor: '#52c41a', fillOpacity: 1, weight: 2 }}>
-              <Popup className="dark-popup" minWidth={200}>
-                <div style={{ padding: '8px 12px', color: '#e6edf3' }}>
-                  <div style={{ fontSize: 10, color: '#52c41a', fontWeight: 700, marginBottom: 4 }}>START</div>
-                  <div style={{ fontSize: 12 }}>{trackPts[0].timestamp}</div>
-                  <div style={{ fontSize: 11, color: '#8b949e', fontFamily: 'monospace', marginTop: 2 }}>{trackPts[0].lat?.toFixed(6)}, {trackPts[0].lng?.toFixed(6)}</div>
+              <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
+                <div style={{
+                  minWidth: 300, fontFamily: 'system-ui,-apple-system,sans-serif',
+                  background: isDark ? '#0d1117' : '#ffffff', borderRadius: 12,
+                }}>
+                  <div style={{
+                    padding: '10px 14px 8px',
+                    borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)'}`,
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#52c41a', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 9, color: '#52c41a', fontWeight: 700, letterSpacing: '0.1em' }}>JOURNEY START</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#e6edf3' : '#1f2937', marginTop: 1 }}>{trackPts[0].timestamp}</div>
+                    </div>
+                  </div>
+                  <div style={{ padding: '10px 14px' }}>
+                    <div style={{ fontSize: 8, color: isDark ? '#8b949e' : '#6b7280', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>POSITION</div>
+                    <div style={{ fontSize: 11, color: isDark ? '#e6edf3' : '#1f2937', fontFamily: 'monospace', marginBottom: 8, whiteSpace: 'nowrap' }}>
+                      {trackPts[0].lat?.toFixed(6)}, {trackPts[0].lng?.toFixed(6)}
+                    </div>
+                    {trackPts[0].location && (<>
+                      <div style={{ fontSize: 8, color: isDark ? '#8b949e' : '#6b7280', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>LOCATION</div>
+                      <div style={{ fontSize: 11, color: isDark ? '#e6edf3' : '#1f2937', lineHeight: 1.4 }}>{trackPts[0].location}</div>
+                    </>)}
+                  </div>
                 </div>
               </Popup>
             </CircleMarker>
@@ -1194,11 +1241,32 @@ export default function VTSMap() {
             {trackPts.length > 1 && (
               <CircleMarker center={[trackPts[trackPts.length - 1].lat, trackPts[trackPts.length - 1].lng]} radius={8}
                 pathOptions={{ color: '#fff', fillColor: '#ff4d4f', fillOpacity: 1, weight: 2 }}>
-                <Popup className="dark-popup" minWidth={200}>
-                  <div style={{ padding: '8px 12px', color: '#e6edf3' }}>
-                    <div style={{ fontSize: 10, color: '#ff4d4f', fontWeight: 700, marginBottom: 4 }}>END</div>
-                    <div style={{ fontSize: 12 }}>{trackPts[trackPts.length - 1].timestamp}</div>
-                    <div style={{ fontSize: 11, color: '#8b949e', fontFamily: 'monospace', marginTop: 2 }}>{trackPts[trackPts.length - 1].lat?.toFixed(6)}, {trackPts[trackPts.length - 1].lng?.toFixed(6)}</div>
+                <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
+                  <div style={{
+                    minWidth: 300, fontFamily: 'system-ui,-apple-system,sans-serif',
+                    background: isDark ? '#0d1117' : '#ffffff', borderRadius: 12,
+                  }}>
+                    <div style={{
+                      padding: '10px 14px 8px',
+                      borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)'}`,
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff4d4f', flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 9, color: '#ff4d4f', fontWeight: 700, letterSpacing: '0.1em' }}>JOURNEY END</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#e6edf3' : '#1f2937', marginTop: 1 }}>{trackPts[trackPts.length - 1].timestamp}</div>
+                      </div>
+                    </div>
+                    <div style={{ padding: '10px 14px' }}>
+                      <div style={{ fontSize: 8, color: isDark ? '#8b949e' : '#6b7280', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>POSITION</div>
+                      <div style={{ fontSize: 11, color: isDark ? '#e6edf3' : '#1f2937', fontFamily: 'monospace', marginBottom: 8, whiteSpace: 'nowrap' }}>
+                        {trackPts[trackPts.length - 1].lat?.toFixed(6)}, {trackPts[trackPts.length - 1].lng?.toFixed(6)}
+                      </div>
+                      {trackPts[trackPts.length - 1].location && (<>
+                        <div style={{ fontSize: 8, color: isDark ? '#8b949e' : '#6b7280', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>LOCATION</div>
+                        <div style={{ fontSize: 11, color: isDark ? '#e6edf3' : '#1f2937', lineHeight: 1.4 }}>{trackPts[trackPts.length - 1].location}</div>
+                      </>)}
+                    </div>
                   </div>
                 </Popup>
               </CircleMarker>
@@ -1208,8 +1276,8 @@ export default function VTSMap() {
             {stopMarkers.map((p, i) => (
               <CircleMarker key={`stop-${i}`} center={[p.lat, p.lng]} radius={4}
                 pathOptions={{ color: '#fa8c16', fillColor: '#fa8c16', fillOpacity: 0.85, weight: 1 }}>
-                <Popup className="dark-popup" minWidth={220}>
-                  <HistoryPointPopup p={p} i={p.origIdx} />
+                <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
+                  <HistoryPointPopup p={p} i={p.origIdx} dark={isDark} />
                 </Popup>
               </CircleMarker>
             ))}
@@ -1226,10 +1294,10 @@ export default function VTSMap() {
                   true,
                   histBearing
                 )}
-                duration={Math.max(playSpeed - 20, 80)}
+                duration={Math.max(playSpeed - 30, 80)}
               >
-                <Popup className="dark-popup" minWidth={260}>
-                  <HistoryPointPopup p={curPt} i={playIdx} />
+                <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
+                  <HistoryPointPopup p={curPt} i={playIdx} dark={isDark} />
                 </Popup>
               </SmoothMarker>
             )}
