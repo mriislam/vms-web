@@ -53,109 +53,95 @@ function DarkPopup({ v, onCopy, dark = true }) {
     setTimeout(() => setCopied(false), 1500);
   }
 
-  const speed  = typeof v?.speed === 'number' ? v.speed.toFixed(1) : (v?.speed ?? '0.0');
+  const speed  = typeof v?.speed === 'number' ? Math.round(v.speed) : (v?.speed ?? '0');
   const status = v?.status ?? 'moving';
-  const statusColor = { moving: '#52c41a', parked: '#fa8c16', idle: '#1677ff' }[status] ?? '#52c41a';
-  const statusLabel = { moving: 'MOVING', parked: 'PARKED', idle: 'IDLE' }[status] ?? 'LIVE';
+  const statusColor = { moving: '#52c41a', running: '#52c41a', parked: '#fa8c16', idle: '#1677ff' }[status] ?? '#52c41a';
+  const statusLabel = { moving: 'Running', running: 'Running', parked: 'Parked', idle: 'Idle' }[status] ?? 'Running';
 
   const textPri = dark ? '#e6edf3' : '#1f2937';
   const textSec = dark ? '#8b949e' : '#6b7280';
   const bg      = dark ? '#0d1117' : '#ffffff';
-  const divLine = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
-  const rowBg   = dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)';
+  const divLine = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
 
-  const latStr = typeof v?.lat === 'number' ? v.lat.toFixed(6) : (v?.lat ?? '—');
-  const lngStr = typeof v?.lng === 'number' ? v.lng.toFixed(6) : (v?.lng ?? '—');
+  const latStr = typeof v?.lat === 'number' ? v.lat : (v?.lat ?? '—');
+  const lngStr = typeof v?.lng === 'number' ? v.lng : (v?.lng ?? '—');
+
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const yyyy = now.getFullYear();
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const timestamp = `${dd}-${mm}-${yyyy} ${timeStr}`;
 
   return (
-    <div style={{ minWidth: 380, fontFamily: 'system-ui,-apple-system,sans-serif', color: textPri, background: bg, borderRadius: 14 }}>
+    <div style={{ minWidth: 460, fontFamily: 'system-ui,-apple-system,sans-serif', color: textPri, background: bg, borderRadius: 14 }}>
 
       {/* Header */}
       <div style={{
-        padding: '12px 16px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        borderBottom: `1px solid ${divLine}`,
+        padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        borderBottom: `1px solid ${divLine}`, gap: 10,
       }}>
-        <div>
-          <div style={{ fontSize: 10, color: '#1677ff', fontWeight: 700, letterSpacing: '0.12em', marginBottom: 2 }}>VEHICLE TRACKER</div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: textPri, letterSpacing: '-0.02em' }}>{v?.vehicle}</div>
-          {v?.driver && (
-            <div style={{ fontSize: 11, color: textSec, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>{v.driver}</span>
-              {v?.clientMobile && (
-                <span style={{ color: '#58a6ff', fontFamily: 'monospace' }}>{v.clientMobile}</span>
-              )}
-            </div>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', minWidth: 0 }}>
+          <span style={{ fontSize: 10, color: '#1677ff', fontWeight: 700, letterSpacing: '0.12em', flexShrink: 0 }}>VEHICLE</span>
+          <span style={{ fontSize: 13, fontWeight: 800, color: textPri, flexShrink: 0 }}>{v?.vehicle}</span>
+          <span style={{ fontSize: 11, color: textSec, whiteSpace: 'nowrap' }}>({timestamp})</span>
         </div>
-        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
+          background: `${statusColor}18`, border: `1px solid ${statusColor}50`,
+          borderRadius: 20, padding: '3px 10px',
+        }}>
           <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            background: `${statusColor}18`, border: `1px solid ${statusColor}50`,
-            borderRadius: 20, padding: '3px 10px',
-          }}>
-            <div style={{
-              width: 6, height: 6, borderRadius: '50%', background: statusColor,
-              animation: status === 'moving' ? 'vtsPulse 1.5s ease-out infinite' : 'none',
-            }} />
-            <span style={{ fontSize: 10, fontWeight: 700, color: statusColor }}>{statusLabel}</span>
-          </div>
-          <div style={{ fontSize: 10, color: textSec, marginTop: 5, textAlign: 'right' }}>
-            {now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-          </div>
-          <div style={{ fontSize: 12, color: textSec, fontFamily: 'monospace', fontWeight: 600, textAlign: 'right' }}>
-            {now.toLocaleTimeString()}
-          </div>
+            width: 6, height: 6, borderRadius: '50%', background: statusColor,
+            animation: (status === 'moving' || status === 'running') ? 'vtsPulse 1.5s ease-out infinite' : 'none',
+          }} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: statusColor }}>{statusLabel}</span>
         </div>
       </div>
 
-      {/* Speed + Route/Location */}
-      <div style={{ display: 'flex', borderBottom: `1px solid ${divLine}` }}>
+      {/* Body: Speed (left) + Position & Location (right) */}
+      <div style={{ display: 'flex' }}>
+
+        {/* Speed column */}
         <div style={{
-          padding: '12px 14px', minWidth: 100, textAlign: 'center',
+          padding: '14px 16px', width: 120, flexShrink: 0, textAlign: 'center',
           borderRight: `1px solid ${divLine}`,
           background: `linear-gradient(180deg,${statusColor}12 0%,transparent 100%)`,
         }}>
-          <div style={{ fontSize: 9, color: statusColor, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 2 }}>SPEED</div>
-          <div style={{ fontSize: 34, fontWeight: 900, color: statusColor, lineHeight: 1 }}>{speed}</div>
-          <div style={{ fontSize: 10, color: textSec, marginTop: 1 }}>km/h</div>
-        </div>
-        <div style={{ flex: 1, padding: '12px 14px', minWidth: 0 }}>
-          {v?.route && (
-            <div style={{ marginBottom: 7 }}>
-              <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 2 }}>ROUTE</div>
-              <div style={{ fontSize: 11, color: textPri, lineHeight: 1.3 }}>{v.route}</div>
-            </div>
-          )}
-          {v?.location && (
-            <div>
-              <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 2 }}>LOCATION</div>
-              <div style={{ fontSize: 11, color: textPri, lineHeight: 1.4 }}>{v.location}</div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* GPS Position */}
-      <div style={{
-        padding: '10px 16px', background: rowBg,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-      }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>GPS POSITION</div>
-          <div style={{ fontSize: 12, color: textPri, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-            {latStr}°N&nbsp;&nbsp;{lngStr}°E
+          <div style={{ fontSize: 9, color: statusColor, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 4 }}>SPEED</div>
+          <div style={{ fontSize: 36, fontWeight: 900, color: statusColor, lineHeight: 1 }}>{speed}</div>
+          <div style={{ fontSize: 11, color: textSec, marginTop: 2 }}>km/h</div>
+          <div style={{ fontSize: 10, color: textSec, marginTop: 8 }}>
+            Limit: <span style={{ color: '#ff4d4f', fontWeight: 700 }}>100.0 km/h</span>
           </div>
         </div>
-        <button onClick={handleCopy} style={{
-          background: copied ? 'rgba(82,196,26,0.18)' : 'rgba(88,166,255,0.12)',
-          border: `1px solid ${copied ? 'rgba(82,196,26,0.45)' : 'rgba(88,166,255,0.3)'}`,
-          borderRadius: 6, padding: '5px 12px', cursor: 'pointer',
-          color: copied ? '#52c41a' : '#58a6ff', fontSize: 11, fontWeight: 600,
-          display: 'flex', alignItems: 'center', gap: 4,
-          transition: 'all 0.2s', flexShrink: 0, whiteSpace: 'nowrap',
-        }}>
-          {copied ? '✓ Copied' : '⧉ Copy'}
-        </button>
+
+        {/* Position + Location column */}
+        <div style={{ flex: 1, padding: '14px 16px', minWidth: 0 }}>
+          {/* POSITION row */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em' }}>POSITION</div>
+              <button onClick={handleCopy} style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
+                color: copied ? '#52c41a' : '#58a6ff', fontSize: 14, lineHeight: 1,
+                display: 'flex', alignItems: 'center',
+              }} title="Copy coordinates">
+                {copied ? '✓' : '⧉'}
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: textPri, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+              {latStr}, {lngStr}
+            </div>
+          </div>
+
+          {/* LOCATION row */}
+          {v?.location && (
+            <div>
+              <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 4 }}>LOCATION</div>
+              <div style={{ fontSize: 12, color: textPri, lineHeight: 1.5 }}>{v.location}</div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1124,7 +1110,7 @@ export default function VTSMap() {
               icon={makeMapMarker(liveCur.vehicleIcon ?? selDev?.vehicleIcon ?? 'car', '#52c41a', true, liveBearing)}
               duration={4500}
             >
-              <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={380} maxWidth={520}>
+              <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={460} maxWidth={560}>
                 <DarkPopup v={liveCur} onCopy={copyCoords} dark={isDark} />
               </Popup>
             </SmoothMarker>
@@ -1146,7 +1132,7 @@ export default function VTSMap() {
                 duration={4500}
                 eventHandlers={{ click: () => onSelect(v.vehicle) }}
               >
-                <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={380} maxWidth={520}>
+                <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={460} maxWidth={560}>
                   <DarkPopup v={v} onCopy={copyCoords} dark={isDark} />
                 </Popup>
               </SmoothMarker>
