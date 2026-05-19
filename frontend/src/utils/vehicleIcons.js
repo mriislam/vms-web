@@ -102,25 +102,21 @@ function iconPaths(key, c) {
 }
 
 /* ── Leaflet divIcon map marker ────────────────────────────────── */
-export function makeMapMarker(iconKey = 'car', color = '#52c41a', selected = false, heading = 0) {
-  const sz   = selected ? 40 : 32;
+export function makeMapMarker(iconKey = 'car', color = '#52c41a', selected = false) {
+  const sz   = selected ? 42 : 34;
   const half = sz / 2;
-  const glow = selected ? `filter:drop-shadow(0 0 8px ${color});` : '';
-  const pulse = selected
-    ? `<div style="position:absolute;inset:-8px;border-radius:50%;border:2.5px solid ${color};opacity:.6;animation:vtsPulse 1.4s ease-out infinite;pointer-events:none"></div>`
-    : '';
+  const shadow = selected
+    ? `drop-shadow(0 0 7px ${color}) drop-shadow(0 3px 10px rgba(0,0,0,.65))`
+    : `drop-shadow(0 2px 6px rgba(0,0,0,.55))`;
   return L.divIcon({
     className: '',
-    html: `<div style="position:relative;width:${sz}px;height:${sz}px">
-      ${pulse}
+    html: `<div style="position:relative;width:${sz}px;height:${sz}px;will-change:transform;transform-origin:center center">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"
            width="${sz}" height="${sz}"
-           style="${glow}filter:drop-shadow(0 3px 8px rgba(0,0,0,.7));display:block">
-        <circle cx="16" cy="16" r="15" fill="${color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.8"/>
+           style="filter:${shadow};display:block">
+        <circle cx="16" cy="16" r="15" fill="${color}" stroke="rgba(255,255,255,0.92)" stroke-width="1.8"/>
         ${iconPaths(iconKey, color)}
-        <g transform="rotate(${heading},16,16)">
-          <polygon points="16,1.5 19.5,8 16,6 12.5,8" fill="white" opacity="0.95"/>
-        </g>
+        <polygon points="16,2 19,7.5 16,6 13,7.5" fill="white" opacity="0.96"/>
       </svg>
     </div>`,
     iconSize:    [sz, sz],

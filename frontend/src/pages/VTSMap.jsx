@@ -240,47 +240,65 @@ function calcBearing(lat1, lng1, lat2, lng2) {
 
 /* ── Smooth animated marker (Google-Maps-style movement) ──────────── */
 function SmoothMarker({ position, heading = 0, icon, duration = 800, eventHandlers, children }) {
-  const markerRef = useRef(null);
-  const animRef   = useRef(null);
-  const fromPos   = useRef(null);
-  const fromHead  = useRef(heading);
+  const markerRef  = useRef(null);
+  const animRef    = useRef(null);
+  const fromPos    = useRef(null);   // null = not yet initialised
+  const fromHead   = useRef(0);
 
-  /* Update icon (heading snap) when icon changes */
-  useEffect(() => {
-    if (markerRef.current && icon) markerRef.current.setIcon(icon);
-  }, [icon]);
+  /* Rotate the icon's inner div via CSS — decoupled from Leaflet's own transform */
+  function applyRotation(marker, angle) {
+    const el    = marker.getElement?.();
+    const inner = el?.firstElementChild; // the <div style="position:relative...">
+    if (inner) inner.style.transform = `rotate(${(((angle % 360) + 360) % 360).toFixed(1)}deg)`;
+  }
 
-  /* Smooth position + heading animation triggered by position change */
+  /* When icon prop changes (color / type), swap icon and re-apply current heading */
   useEffect(() => {
     const marker = markerRef.current;
-    if (!marker) { fromPos.current = [...position]; fromHead.current = heading; return; }
+    if (!marker || !icon) return;
+    marker.setIcon(icon);
+    // Icon swap resets DOM — re-apply stored heading in next frame
+    requestAnimationFrame(() => applyRotation(marker, fromHead.current));
+  }, [icon]); // eslint-disable-line
 
-    const [fLat, fLng] = fromPos.current ?? position;
-    const fh = fromHead.current;
-
-    fromPos.current = [...position];
-    fromHead.current = heading;
+  /* Animate position + heading whenever either changes */
+  useEffect(() => {
+    const marker = markerRef.current;
+    if (!marker) return;
 
     const [tLat, tLng] = position;
+
+    /* First mount: just record state and set initial rotation */
+    if (fromPos.current === null) {
+      fromPos.current = [tLat, tLng];
+      fromHead.current = heading;
+      requestAnimationFrame(() => applyRotation(marker, heading));
+      return;
+    }
+
+    const [fLat, fLng] = fromPos.current;
+    const fh            = fromHead.current;
+
+    fromPos.current  = [tLat, tLng];
+    fromHead.current = heading;
+
     cancelAnimationFrame(animRef.current);
 
-    /* Reset to start — overrides react-leaflet's instant setLatLng */
-    marker.setLatLng([fLat, fLng]);
-    if (fLat === tLat && fLng === tLng) return;
+    /* No position change — just snap heading */
+    if (fLat === tLat && fLng === tLng) {
+      applyRotation(marker, heading);
+      return;
+    }
 
-    /* Shortest heading rotation */
-    const hDiff = ((heading - fh + 540) % 360) - 180;
+    marker.setLatLng([fLat, fLng]); // reset to start so rAF controls position
+    const hDiff = ((heading - fh + 540) % 360) - 180; // shortest-arc rotation
     const start = performance.now();
 
     function step(ts) {
       const t = Math.min((ts - start) / duration, 1);
       const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2; // easeInOutQuad
       marker.setLatLng([fLat + (tLat - fLat) * e, fLng + (tLng - fLng) * e]);
-      const el = marker.getElement?.();
-      if (el) {
-        const g = el.querySelector('g[transform]');
-        if (g) g.setAttribute('transform', `rotate(${((fh + hDiff * e + 360) % 360).toFixed(1)},16,16)`);
-      }
+      applyRotation(marker, fh + hDiff * e);
       if (t < 1) animRef.current = requestAnimationFrame(step);
     }
     animRef.current = requestAnimationFrame(step);
@@ -357,6 +375,7 @@ export default function VTSMap() {
   const timerRef       = useRef(null);
   const playRef        = useRef(null);
   const prevLivePosRef = useRef(null);
+  const livePosHistRef = useRef([]);   // rolling buffer of last 5 GPS positions
 
   const [leafletMap, setLeafletMap] = useState(null);
 
@@ -383,13 +402,19 @@ export default function VTSMap() {
     try {
       const r = await vtsService.getLiveOne(reg);
       const d = r.data.data;
-      if (d && prevLivePosRef.current) {
-        const { lat: pLat, lng: pLng } = prevLivePosRef.current;
-        if (pLat !== d.lat || pLng !== d.lng) {
-          setLiveBearing(calcBearing(pLat, pLng, d.lat, d.lng));
+      if (d) {
+        const hist = livePosHistRef.current;
+        const last = hist[hist.length - 1];
+        if (!last || last.lat !== d.lat || last.lng !== d.lng) {
+          hist.push({ lat: d.lat, lng: d.lng });
+          if (hist.length > 5) hist.shift();
+          /* Bearing from oldest buffered point → newest for stable direction */
+          if (hist.length >= 2) {
+            setLiveBearing(calcBearing(hist[0].lat, hist[0].lng, hist[hist.length - 1].lat, hist[hist.length - 1].lng));
+          }
         }
+        prevLivePosRef.current = { lat: d.lat, lng: d.lng };
       }
-      if (d) prevLivePosRef.current = { lat: d.lat, lng: d.lng };
       setLiveOne(d);
     } catch {}
   }, []);
@@ -415,6 +440,7 @@ export default function VTSMap() {
     setPlayIdx(0);
     setLiveBearing(0);
     prevLivePosRef.current = null;
+    livePosHistRef.current = [];
     clearInterval(playRef.current);
     if (reg) fetchOne(reg);
     else setLiveOne(null);
@@ -478,16 +504,15 @@ export default function VTSMap() {
   const totalVeh = devices.length;
 
   const histBearing = useMemo(() => {
-    if (!trackPts.length) return 0;
-    if (playIdx < trackPts.length - 1) {
-      const a = trackPts[playIdx], b = trackPts[playIdx + 1];
-      return calcBearing(a.lat, a.lng, b.lat, b.lng);
-    }
-    if (playIdx > 0) {
-      const a = trackPts[playIdx - 1], b = trackPts[playIdx];
-      return calcBearing(a.lat, a.lng, b.lat, b.lng);
-    }
-    return 0;
+    if (trackPts.length < 2) return 0;
+    /* Wide window (±4 points) for a stable, smooth bearing */
+    const behind = Math.max(0, playIdx - 2);
+    const ahead  = Math.min(trackPts.length - 1, playIdx + 4);
+    if (behind === ahead) return 0;
+    return calcBearing(
+      trackPts[behind].lat, trackPts[behind].lng,
+      trackPts[ahead].lat,  trackPts[ahead].lng
+    );
   }, [trackPts, playIdx]);
 
   /* Engine-off stop points (capped at 40 for performance) */
@@ -1155,7 +1180,7 @@ export default function VTSMap() {
               key={`live-${selectedReg}`}
               position={[liveCur.lat, liveCur.lng]}
               heading={liveBearing}
-              icon={makeMapMarker(liveCur.vehicleIcon ?? selDev?.vehicleIcon ?? 'car', '#52c41a', true, liveBearing)}
+              icon={makeMapMarker(liveCur.vehicleIcon ?? selDev?.vehicleIcon ?? 'car', '#52c41a', true)}
               duration={4500}
             >
               <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={460} maxWidth={560}>
@@ -1176,7 +1201,7 @@ export default function VTSMap() {
                 key={v.key}
                 position={[v.lat, v.lng]}
                 heading={trailBearing(v.trail)}
-                icon={makeMapMarker(v.vehicleIcon ?? 'car', STATUS_COLOR[v.status] ?? '#52c41a', false, trailBearing(v.trail))}
+                icon={makeMapMarker(v.vehicleIcon ?? 'car', STATUS_COLOR[v.status] ?? '#52c41a', false)}
                 duration={4500}
                 eventHandlers={{ click: () => onSelect(v.vehicle) }}
               >
@@ -1291,8 +1316,7 @@ export default function VTSMap() {
                 icon={makeMapMarker(
                   selDev?.vehicleIcon ?? 'car',
                   curPt.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
-                  true,
-                  histBearing
+                  true
                 )}
                 duration={Math.max(playSpeed - 30, 80)}
               >
