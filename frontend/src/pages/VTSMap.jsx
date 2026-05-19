@@ -53,94 +53,110 @@ function DarkPopup({ v, onCopy, dark = true }) {
     setTimeout(() => setCopied(false), 1500);
   }
 
-  const speed  = typeof v?.speed === 'number' ? Math.round(v.speed) : (v?.speed ?? '0');
+  const spdNum = typeof v?.speed === 'number' ? v.speed : parseFloat(v?.speed) || 0;
+  const speed  = Math.round(spdNum);
   const status = v?.status ?? 'moving';
   const statusColor = { moving: '#52c41a', running: '#52c41a', parked: '#fa8c16', idle: '#1677ff' }[status] ?? '#52c41a';
-  const statusLabel = { moving: 'Running', running: 'Running', parked: 'Parked', idle: 'Idle' }[status] ?? 'Running';
+  const statusLabel = { moving: 'Running', running: 'Running', parked: 'Parked',  idle: 'Idle'    }[status] ?? 'Running';
+  const isPulsing   = status === 'moving' || status === 'running';
+  const spdPct      = Math.min((spdNum / 120) * 100, 100);
 
   const textPri = dark ? '#e6edf3' : '#1f2937';
   const textSec = dark ? '#8b949e' : '#6b7280';
-  const bg      = dark ? '#0d1117' : '#ffffff';
-  const divLine = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
+  const bg      = dark ? '#161b22' : '#ffffff';
+  const cardBg  = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+  const divLine = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+  const gaugeTrack = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
 
-  const latStr = typeof v?.lat === 'number' ? v.lat : (v?.lat ?? '—');
-  const lngStr = typeof v?.lng === 'number' ? v.lng : (v?.lng ?? '—');
+  const latStr = typeof v?.lat === 'number' ? v.lat.toFixed(6) : (v?.lat ?? '—');
+  const lngStr = typeof v?.lng === 'number' ? v.lng.toFixed(6) : (v?.lng ?? '—');
 
-  const dd = String(now.getDate()).padStart(2, '0');
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const yyyy = now.getFullYear();
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const timestamp = `${dd}-${mm}-${yyyy} ${timeStr}`;
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
   return (
-    <div style={{ minWidth: 460, fontFamily: 'system-ui,-apple-system,sans-serif', color: textPri, background: bg, borderRadius: 14 }}>
+    <div style={{ width: 460, fontFamily: 'system-ui,-apple-system,sans-serif', background: bg, borderRadius: 14, overflow: 'hidden' }}>
 
-      {/* Header */}
+      {/* Gradient header */}
       <div style={{
-        padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        borderBottom: `1px solid ${divLine}`, gap: 10,
+        background: 'linear-gradient(135deg, #1677ff 0%, #6d28d9 100%)',
+        padding: '12px 16px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', minWidth: 0 }}>
-          <span style={{ fontSize: 10, color: '#1677ff', fontWeight: 700, letterSpacing: '0.12em', flexShrink: 0 }}>VEHICLE</span>
-          <span style={{ fontSize: 13, fontWeight: 800, color: textPri, flexShrink: 0 }}>{v?.vehicle}</span>
-          <span style={{ fontSize: 11, color: textSec, whiteSpace: 'nowrap' }}>({timestamp})</span>
+        <div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: '0.15em', marginBottom: 2 }}>LIVE VEHICLE</div>
+          <div style={{ fontSize: 17, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{v?.vehicle}</div>
         </div>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
-          background: `${statusColor}18`, border: `1px solid ${statusColor}50`,
-          borderRadius: 20, padding: '3px 10px',
-        }}>
+        <div style={{ textAlign: 'right' }}>
           <div style={{
-            width: 6, height: 6, borderRadius: '50%', background: statusColor,
-            animation: (status === 'moving' || status === 'running') ? 'vtsPulse 1.5s ease-out infinite' : 'none',
-          }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: statusColor }}>{statusLabel}</span>
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.35)',
+            borderRadius: 20, padding: '4px 10px', marginBottom: 4,
+          }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: '50%', background: statusColor,
+              animation: isPulsing ? 'vtsPulse 1.5s ease-out infinite' : 'none',
+            }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{statusLabel}</span>
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>{dateStr} · {timeStr}</div>
         </div>
       </div>
 
-      {/* Body: Speed (left) + Position & Location (right) */}
+      {/* Body */}
       <div style={{ display: 'flex' }}>
 
-        {/* Speed column */}
+        {/* Speed gauge column */}
         <div style={{
-          padding: '14px 16px', width: 120, flexShrink: 0, textAlign: 'center',
+          padding: '16px 12px', width: 110, flexShrink: 0, textAlign: 'center',
           borderRight: `1px solid ${divLine}`,
-          background: `linear-gradient(180deg,${statusColor}12 0%,transparent 100%)`,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         }}>
-          <div style={{ fontSize: 9, color: statusColor, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 4 }}>SPEED</div>
-          <div style={{ fontSize: 36, fontWeight: 900, color: statusColor, lineHeight: 1 }}>{speed}</div>
-          <div style={{ fontSize: 11, color: textSec, marginTop: 2 }}>km/h</div>
-          <div style={{ fontSize: 10, color: textSec, marginTop: 8 }}>
-            Limit: <span style={{ color: '#ff4d4f', fontWeight: 700 }}>100.0 km/h</span>
+          <div style={{ fontSize: 8, color: textSec, fontWeight: 700, letterSpacing: '0.12em', marginBottom: 8 }}>SPEED</div>
+          <div style={{
+            width: 70, height: 70, borderRadius: '50%',
+            background: `conic-gradient(${statusColor} ${spdPct * 3.6}deg, ${gaugeTrack} 0deg)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <div style={{
+              width: 54, height: 54, borderRadius: '50%', background: bg,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: statusColor, lineHeight: 1 }}>{speed}</div>
+              <div style={{ fontSize: 8, color: textSec, marginTop: 1 }}>km/h</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 9, color: textSec, marginTop: 8 }}>
+            Limit: <span style={{ color: '#ff4d4f', fontWeight: 700 }}>100</span>
           </div>
         </div>
 
         {/* Position + Location column */}
-        <div style={{ flex: 1, padding: '14px 16px', minWidth: 0 }}>
-          {/* POSITION row */}
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em' }}>POSITION</div>
+        <div style={{ flex: 1, padding: '12px 14px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+          {/* Position card */}
+          <div style={{ background: cardBg, borderRadius: 8, padding: '8px 10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <div style={{ fontSize: 8, color: textSec, fontWeight: 700, letterSpacing: '0.1em' }}>POSITION</div>
               <button onClick={handleCopy} style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
-                color: copied ? '#52c41a' : '#58a6ff', fontSize: 14, lineHeight: 1,
-                display: 'flex', alignItems: 'center',
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                color: copied ? '#52c41a' : '#58a6ff', fontSize: 13, lineHeight: 1,
               }} title="Copy coordinates">
                 {copied ? '✓' : '⧉'}
               </button>
             </div>
-            <div style={{ fontSize: 12, color: textPri, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: 11, color: textPri, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
               {latStr}, {lngStr}
             </div>
           </div>
 
-          {/* LOCATION row */}
-          {v?.location && (
-            <div>
-              <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 4 }}>LOCATION</div>
-              <div style={{ fontSize: 12, color: textPri, lineHeight: 1.5 }}>{v.location}</div>
+          {/* Location card */}
+          <div style={{ background: cardBg, borderRadius: 8, padding: '8px 10px', flex: 1 }}>
+            <div style={{ fontSize: 8, color: textSec, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 4 }}>LOCATION</div>
+            <div style={{ fontSize: 11, color: textPri, lineHeight: 1.5, wordBreak: 'break-word' }}>
+              {v?.location || '—'}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
@@ -167,61 +183,87 @@ function ResizeHandler({ trigger }) {
 
 /* ── History point popup — module scope to avoid reconciler crash ── */
 function HistoryPointPopup({ p, i, dark = true }) {
-  const textPri  = dark ? '#e6edf3' : '#1f2937';
-  const textSec  = dark ? '#8b949e' : '#6b7280';
-  const bg       = dark ? '#0d1117' : '#ffffff';
-  const divLine  = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
-  const engineOn = p.engineStatus === 'running';
-  const engColor = engineOn ? '#52c41a' : '#fa8c16';
-  const spd      = parseFloat(p.speed) || 0;
-  const spdColor = spd > 80 ? '#ff4d4f' : spd > 40 ? '#fa8c16' : '#52c41a';
+  const textPri   = dark ? '#e6edf3' : '#1f2937';
+  const textSec   = dark ? '#8b949e' : '#6b7280';
+  const bg        = dark ? '#161b22' : '#ffffff';
+  const cardBg    = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+  const divLine   = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+  const gaugeTrack = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+
+  const engineOn  = p.engineStatus === 'running';
+  const spd       = parseFloat(p.speed) || 0;
+  const spdColor  = spd > 80 ? '#ff4d4f' : spd > 40 ? '#fa8c16' : '#52c41a';
+  const spdPct    = Math.min((spd / 120) * 100, 100);
+
+  const headerGrad = engineOn
+    ? 'linear-gradient(135deg, #065f2c 0%, #16a34a 100%)'
+    : 'linear-gradient(135deg, #92400e 0%, #d97706 100%)';
 
   return (
-    <div style={{ minWidth: 300, fontFamily: 'system-ui,-apple-system,sans-serif', color: textPri, background: bg, borderRadius: 12 }}>
+    <div style={{ width: 300, fontFamily: 'system-ui,-apple-system,sans-serif', background: bg, borderRadius: 12, overflow: 'hidden' }}>
 
-      {/* Header */}
+      {/* Gradient header */}
       <div style={{
-        padding: '10px 14px 8px', borderBottom: `1px solid ${divLine}`,
+        background: headerGrad,
+        padding: '10px 14px',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
         <div>
-          <div style={{ fontSize: 9, color: '#58a6ff', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 2 }}>POINT #{i + 1}</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: textPri }}>{p.timestamp}</div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: '0.15em', marginBottom: 1 }}>HISTORY POINT</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: '#fff' }}>#{i + 1}</div>
         </div>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
-          background: `${engColor}18`, border: `1px solid ${engColor}50`,
-          borderRadius: 20, padding: '3px 8px',
-        }}>
-          <div style={{ width: 5, height: 5, borderRadius: '50%', background: engColor }} />
-          <span style={{ fontSize: 9, fontWeight: 700, color: engColor }}>{engineOn ? 'ENGINE ON' : 'ENGINE OFF'}</span>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.35)',
+            borderRadius: 20, padding: '3px 8px', marginBottom: 3,
+          }}>
+            <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }} />
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#fff' }}>{engineOn ? 'ENGINE ON' : 'ENGINE OFF'}</span>
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>{p.timestamp}</div>
         </div>
       </div>
 
-      {/* Body: speed (left) + position & location (right) */}
+      {/* Body */}
       <div style={{ display: 'flex' }}>
+
+        {/* Speed gauge */}
         <div style={{
-          padding: '12px 14px', width: 90, flexShrink: 0, textAlign: 'center',
+          padding: '14px 10px', width: 90, flexShrink: 0, textAlign: 'center',
           borderRight: `1px solid ${divLine}`,
-          background: `linear-gradient(180deg,${spdColor}15 0%,transparent 100%)`,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         }}>
-          <div style={{ fontSize: 8, color: spdColor, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 3 }}>SPEED</div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: spdColor, lineHeight: 1 }}>{p.speed}</div>
-          <div style={{ fontSize: 10, color: textSec, marginTop: 2 }}>km/h</div>
+          <div style={{ fontSize: 8, color: textSec, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 7 }}>SPEED</div>
+          <div style={{
+            width: 58, height: 58, borderRadius: '50%',
+            background: `conic-gradient(${spdColor} ${spdPct * 3.6}deg, ${gaugeTrack} 0deg)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: '50%', background: bg,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <div style={{ fontSize: 17, fontWeight: 900, color: spdColor, lineHeight: 1 }}>{p.speed}</div>
+              <div style={{ fontSize: 7, color: textSec }}>km/h</div>
+            </div>
+          </div>
         </div>
-        <div style={{ flex: 1, padding: '12px 14px', minWidth: 0 }}>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 8, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>POSITION</div>
-            <div style={{ fontSize: 11, color: textPri, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+
+        {/* Position + Location */}
+        <div style={{ flex: 1, padding: '10px 12px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ background: cardBg, borderRadius: 7, padding: '7px 9px' }}>
+            <div style={{ fontSize: 7, color: textSec, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 3 }}>POSITION</div>
+            <div style={{ fontSize: 10, color: textPri, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
               {p.lat?.toFixed(6)}, {p.lng?.toFixed(6)}
             </div>
           </div>
-          {p.location && (
-            <div>
-              <div style={{ fontSize: 8, color: textSec, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 3 }}>LOCATION</div>
-              <div style={{ fontSize: 11, color: textPri, lineHeight: 1.4 }}>{p.location}</div>
+          <div style={{ background: cardBg, borderRadius: 7, padding: '7px 9px', flex: 1 }}>
+            <div style={{ fontSize: 7, color: textSec, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 3 }}>LOCATION</div>
+            <div style={{ fontSize: 10, color: textPri, lineHeight: 1.4, wordBreak: 'break-word' }}>
+              {p.location || '—'}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
@@ -322,11 +364,11 @@ const POPUP_CSS = `
   }
 
   .dark-popup .leaflet-popup-content-wrapper {
-    background: #0d1117; border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 14px; padding: 0; box-shadow: 0 10px 40px rgba(0,0,0,0.65);
+    background: #161b22; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px; padding: 0; box-shadow: 0 12px 48px rgba(0,0,0,0.7);
   }
   .dark-popup .leaflet-popup-content { margin: 0; }
-  .dark-popup .leaflet-popup-tip { background: #0d1117; }
+  .dark-popup .leaflet-popup-tip { background: #161b22; }
   .dark-popup .leaflet-popup-close-button { color: rgba(255,255,255,0.5) !important; top: 6px !important; right: 6px !important; }
 
   .light-popup .leaflet-popup-content-wrapper {
@@ -376,6 +418,9 @@ export default function VTSMap() {
   const playRef        = useRef(null);
   const prevLivePosRef = useRef(null);
   const livePosHistRef = useRef([]);   // rolling buffer of last 5 GPS positions
+  const geoCache       = useRef({});
+  const geoTimerRef    = useRef(null);
+  const [liveGeoLoc,  setLiveGeoLoc]  = useState(null);
 
   const [leafletMap, setLeafletMap] = useState(null);
 
@@ -489,6 +534,37 @@ export default function VTSMap() {
   }, [playSpeed]); // eslint-disable-line
 
   useEffect(() => () => { clearInterval(playRef.current); }, []);
+
+  /* Reverse-geocode current history point (Nominatim, 2 s debounce + LRU cache) */
+  useEffect(() => {
+    const pt = histData?.trackPoints?.[playIdx];
+    if (!pt?.lat || !pt?.lng) { setLiveGeoLoc(null); return; }
+    const key = `${pt.lat.toFixed(3)},${pt.lng.toFixed(3)}`;
+    if (geoCache.current[key]) { setLiveGeoLoc(geoCache.current[key]); return; }
+    clearTimeout(geoTimerRef.current);
+    geoTimerRef.current = setTimeout(async () => {
+      try {
+        const res  = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${pt.lat}&lon=${pt.lng}&format=json&zoom=14`,
+          { headers: { 'Accept-Language': 'en' } }
+        );
+        const data = await res.json();
+        const addr = data.address || {};
+        const parts = [
+          addr.road || addr.pedestrian || addr.suburb,
+          addr.village || addr.town || addr.city || addr.municipality,
+          addr.state_district || addr.county,
+          addr.state,
+        ].filter(Boolean).slice(0, 3);
+        const loc = parts.length > 0
+          ? parts.join(', ')
+          : (data.display_name?.split(',').slice(0, 2).join(', ') || '—');
+        geoCache.current[key] = loc;
+        setLiveGeoLoc(loc);
+      } catch {}
+    }, 2000);
+    return () => clearTimeout(geoTimerRef.current);
+  }, [histData, playIdx]); // eslint-disable-line
 
   function copyCoords(lat, lng) {
     navigator.clipboard?.writeText(`${lat}, ${lng}`);
@@ -1111,22 +1187,37 @@ export default function VTSMap() {
         {/* Live status overlay */}
         <div style={{
           position: 'absolute', top: 12, left: 12, zIndex: 1000,
-          background: isDark ? 'rgba(13,17,23,0.90)' : 'rgba(255,255,255,0.94)',
-          backdropFilter: 'blur(8px)',
-          border: `1px solid ${border}`, borderRadius: 10, padding: '6px 12px',
-          display: 'flex', alignItems: 'center', gap: 8,
-          boxShadow: isDark ? 'none' : '0 2px 10px rgba(0,0,0,0.10)',
+          background: isDark ? 'rgba(13,17,23,0.92)' : 'rgba(255,255,255,0.96)',
+          backdropFilter: 'blur(10px)',
+          border: `1px solid ${isDark ? 'rgba(82,196,26,0.2)' : 'rgba(82,196,26,0.25)'}`,
+          borderRadius: 10, padding: '7px 14px',
+          display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 2px 12px rgba(0,0,0,0.10)',
         }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#52c41a', boxShadow: '0 0 8px #52c41a' }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#52c41a' }}>
-            {selectedReg ? `Tracking ${selectedReg}` : `${liveAll.length} vehicles live`}
-          </span>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{
+              width: 8, height: 8, borderRadius: '50%', background: '#52c41a',
+              boxShadow: '0 0 0 3px rgba(82,196,26,0.25), 0 0 8px #52c41a',
+            }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 9, color: '#52c41a', fontWeight: 700, letterSpacing: '0.1em', lineHeight: 1 }}>
+              {selectedReg ? 'TRACKING' : 'LIVE'}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: textPri, marginTop: 1 }}>
+              {selectedReg ? selectedReg : `${liveAll.length} vehicles`}
+            </div>
+          </div>
           {selectedReg && activeTab === 'live' && liveCur && (
             <>
-              <span style={{ color: textSec, fontSize: 10 }}>|</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#52c41a' }}>
-                {typeof liveCur.speed === 'number' ? liveCur.speed.toFixed(1) : liveCur.speed} km/h
-              </span>
+              <div style={{ width: 1, height: 28, background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 9, color: textSec, fontWeight: 700, letterSpacing: '0.1em' }}>SPEED</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: '#52c41a', lineHeight: 1.1 }}>
+                  {typeof liveCur.speed === 'number' ? liveCur.speed.toFixed(1) : liveCur.speed}
+                  <span style={{ fontSize: 9, fontWeight: 500, color: textSec, marginLeft: 2 }}>km/h</span>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -1134,28 +1225,36 @@ export default function VTSMap() {
         {/* History stats overlay */}
         {activeTab === 'history' && histData && (
           <div style={{
-            position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 1000, display: 'flex', gap: 0, overflow: 'hidden',
-            background: isDark ? 'rgba(13,17,23,0.92)' : 'rgba(255,255,255,0.95)',
-            backdropFilter: 'blur(8px)',
-            border: `1px solid ${border}`, borderRadius: 12,
-            boxShadow: isDark ? '0 4px 24px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.12)',
+            position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 1000, overflow: 'hidden',
+            background: isDark ? 'rgba(13,17,23,0.94)' : 'rgba(255,255,255,0.97)',
+            backdropFilter: 'blur(12px)',
+            border: `1px solid ${border}`, borderRadius: 14,
+            boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.55)' : '0 6px 24px rgba(0,0,0,0.14)',
           }}>
-            {[
-              { label: 'TOTAL',    value: `${histData.totalKm} km`,             color: accent },
-              { label: 'TRAVELED', value: `${histData.traveledKm} km`,          color: '#52c41a' },
-              { label: 'SPEED',    value: curPt ? `${curPt.speed} km/h` : '—',  color: curPt && curPt.speed > 0 ? '#52c41a' : textSec },
-              { label: 'POINTS',   value: trackPts.length,                       color: '#fa8c16' },
-              { label: 'POINT',    value: `${playIdx + 1} / ${trackPts.length}`, color: textSec },
-            ].map((s, i) => (
-              <div key={s.label} style={{
-                padding: '8px 16px', textAlign: 'center',
-                borderRight: i < 4 ? `1px solid ${border}` : 'none',
-              }}>
-                <div style={{ fontSize: 9, color: textSec, letterSpacing: '0.1em', marginBottom: 2 }}>{s.label}</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: s.color }}>{s.value}</div>
-              </div>
-            ))}
+            {/* Top accent bar */}
+            <div style={{ height: 3, background: 'linear-gradient(90deg, #1677ff, #52c41a, #fa8c16)', borderRadius: '14px 14px 0 0' }} />
+            <div style={{ display: 'flex' }}>
+              {[
+                { label: 'TOTAL DIST',  value: `${histData.totalKm}`,    unit: 'km',   color: accent },
+                { label: 'TRAVELED',    value: `${histData.traveledKm}`, unit: 'km',   color: '#52c41a' },
+                { label: 'CUR SPEED',   value: curPt ? `${curPt.speed}` : '—', unit: curPt ? 'km/h' : '', color: curPt && curPt.speed > 0 ? '#fa8c16' : textSec },
+                { label: 'DATA PTS',    value: trackPts.length,           unit: '',     color: '#a78bfa' },
+                { label: 'POSITION',    value: `${playIdx + 1}`,          unit: `/ ${trackPts.length}`, color: textSec },
+              ].map((s, i) => (
+                <div key={s.label} style={{
+                  padding: '10px 18px', textAlign: 'center',
+                  borderRight: i < 4 ? `1px solid ${border}` : 'none',
+                  minWidth: 80,
+                }}>
+                  <div style={{ fontSize: 8, color: textSec, letterSpacing: '0.1em', fontWeight: 600, marginBottom: 4 }}>{s.label}</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 3 }}>
+                    <span style={{ fontSize: 16, fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.value}</span>
+                    {s.unit && <span style={{ fontSize: 9, color: textSec, fontWeight: 500 }}>{s.unit}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -1334,7 +1433,11 @@ export default function VTSMap() {
                 duration={Math.max(playSpeed * 0.85, 15)}
               >
                 <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
-                  <HistoryPointPopup p={curPt} i={playIdx} dark={isDark} />
+                  <HistoryPointPopup
+                    p={{ ...curPt, location: liveGeoLoc || curPt.location }}
+                    i={playIdx}
+                    dark={isDark}
+                  />
                 </Popup>
               </SmoothMarker>
             )}
