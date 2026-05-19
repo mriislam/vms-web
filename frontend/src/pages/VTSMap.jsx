@@ -367,7 +367,7 @@ export default function VTSMap() {
   const [histLoading, setHistLoading] = useState(false);
   const [playIdx,     setPlayIdx]     = useState(0);
   const [playing,     setPlaying]     = useState(false);
-  const [playSpeed,   setPlaySpeed]   = useState(400);
+  const [playSpeed,   setPlaySpeed]   = useState(200);
   const [dispMode,    setDispMode]    = useState('Markers');
 
   const [liveBearing, setLiveBearing] = useState(0);
@@ -902,10 +902,10 @@ export default function VTSMap() {
                         <span style={{ fontSize: 11, color: textSec }}>{playIdx + 1} / {trackPts.length}</span>
                         <Select size="small" value={playSpeed} onChange={setPlaySpeed} style={{ width: 100 }}
                           options={[
-                            { value: 800, label: '0.5× Speed' },
-                            { value: 400, label: '1× Speed' },
-                            { value: 200, label: '2× Speed' },
-                            { value: 80,  label: '4× Speed' },
+                            { value: 200, label: '1× Speed' },
+                            { value: 100, label: '2× Speed' },
+                            { value: 40,  label: '5× Speed' },
+                            { value: 16,  label: '10× Speed' },
                           ]}
                         />
                         <button onClick={() => { setPlayIdx(0); setPlaying(false); clearInterval(playRef.current); }}
@@ -1318,7 +1318,7 @@ export default function VTSMap() {
                   curPt.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
                   true
                 )}
-                duration={Math.max(playSpeed - 30, 80)}
+                duration={Math.max(playSpeed * 0.85, 15)}
               >
                 <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
                   <HistoryPointPopup p={curPt} i={playIdx} dark={isDark} />
