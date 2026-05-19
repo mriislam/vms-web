@@ -21,7 +21,7 @@ L.Icon.Default.mergeOptions({
 });
 
 /* ── Vehicle icon ───────────────────────────────────────────────── */
-function makeVehicleIcon(color = '#52c41a', selected = false) {
+function makeVehicleIcon(color = '#52c41a', selected = false, heading = 0) {
   const sz = selected ? 40 : 32;
   const half = sz / 2;
   const glow = selected ? `filter:drop-shadow(0 0 8px ${color});` : '';
@@ -42,6 +42,10 @@ function makeVehicleIcon(color = '#52c41a', selected = false) {
           L8.5 9.5 Q9 7.5 10.5 7.5 Z"/>
         <rect fill="${color}" opacity="0.55" x="10" y="10.5" width="12" height="4" rx="1.5"/>
         <rect fill="${color}" opacity="0.55" x="10" y="20.5" width="12" height="3" rx="1.5"/>
+        <!-- Direction arrow rotated to heading (0=north) -->
+        <g transform="rotate(${heading}, 16, 16)">
+          <polygon points="16,1.5 19.5,8 16,6 12.5,8" fill="white" opacity="0.95"/>
+        </g>
       </svg>
     </div>`,
     iconSize:    [sz, sz],
@@ -152,6 +156,43 @@ function ResizeHandler({ trigger }) {
   return null;
 }
 
+/* ── History point popup — module scope to avoid reconciler crash ── */
+function HistoryPointPopup({ p, i }) {
+  const textPri = '#e6edf3';
+  const textSec = '#8b949e';
+  return (
+    <div style={{ padding: '12px 14px', color: textPri }}>
+      <div style={{ fontSize: 10, color: '#58a6ff', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 4 }}>
+        POINT #{i + 1}
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: textPri, marginBottom: 6 }}>{p.timestamp}</div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6 }}>
+        <div style={{
+          background: 'rgba(82,196,26,0.15)', border: '1px solid rgba(82,196,26,0.3)',
+          borderRadius: 8, padding: '4px 10px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 20, fontWeight: 900, color: '#52c41a' }}>{p.speed}</div>
+          <div style={{ fontSize: 10, color: textSec }}>km/h</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 10, color: textSec, marginBottom: 2 }}>POSITION</div>
+          <div style={{ fontSize: 11, color: textPri, fontFamily: 'monospace' }}>{p.lat?.toFixed(6)}, {p.lng?.toFixed(6)}</div>
+          {p.location && <div style={{ fontSize: 11, color: textSec, marginTop: 4 }}>{p.location}</div>}
+        </div>
+      </div>
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700,
+        color: p.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
+        background: p.engineStatus === 'running' ? 'rgba(82,196,26,0.12)' : 'rgba(250,140,22,0.12)',
+        border: `1px solid ${p.engineStatus === 'running' ? 'rgba(82,196,26,0.3)' : 'rgba(250,140,22,0.3)'}`,
+        borderRadius: 20, padding: '2px 10px',
+      }}>
+        ● {p.engineStatus === 'running' ? 'ENGINE ON' : 'ENGINE OFF'}
+      </div>
+    </div>
+  );
+}
+
 /* ── Dark popup style injected once ─────────────────────────────── */
 const DARK_POPUP_CSS = `
   .dark-popup .leaflet-popup-content-wrapper {
@@ -172,7 +213,7 @@ export default function VTSMap() {
   const [selectedReg, setSelectedReg] = useState(null);
   const [liveOne,     setLiveOne]     = useState(null);
   const [activeTab,   setActiveTab]   = useState('live');
-  const [mapLayer,    setMapLayer]    = useState('dark');
+  const [mapLayer,    setMapLayer]    = useState('osm');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [loading,     setLoading]     = useState(true);
   const [search,      setSearch]      = useState('');
@@ -308,12 +349,13 @@ export default function VTSMap() {
   /* ══════════════════════════════════════════════════════════════
      RENDER
   ══════════════════════════════════════════════════════════════ */
-  const panelBg   = '#0d1117';
-  const panelBg2  = '#161b22';
-  const border    = 'rgba(255,255,255,0.08)';
-  const textPri   = '#e6edf3';
-  const textSec   = '#8b949e';
-  const accent    = '#1677ff';
+  const isDark   = mapLayer === 'dark';
+  const panelBg  = isDark ? '#0d1117' : '#ffffff';
+  const panelBg2 = isDark ? '#161b22' : '#f4f6f8';
+  const border   = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
+  const textPri  = isDark ? '#e6edf3' : '#1f2937';
+  const textSec  = isDark ? '#8b949e' : '#6b7280';
+  const accent   = '#1677ff';
 
   return (
     <div style={{
@@ -338,7 +380,7 @@ export default function VTSMap() {
         <div style={{
           padding: '14px 16px 12px',
           borderBottom: `1px solid ${border}`,
-          background: 'linear-gradient(180deg, #0d1320 0%, #0d1117 100%)',
+          background: isDark ? 'linear-gradient(180deg, #0d1320 0%, #0d1117 100%)' : 'linear-gradient(180deg, #f0f4ff 0%, #ffffff 100%)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
             <div style={{
@@ -898,8 +940,8 @@ export default function VTSMap() {
 
           {/* Fly to selected vehicle */}
           {activeTab === 'live' && liveCur && <FlyTo lat={liveCur.lat} lng={liveCur.lng} zoom={14} />}
-          {activeTab === 'history' && trackPts.length > 1 && !curPt && <FitBounds points={trackPts} />}
-          {activeTab === 'history' && curPt && <FlyTo lat={curPt.lat} lng={curPt.lng} zoom={14} />}
+          {activeTab === 'history' && trackPts.length > 1 && !playing && <FitBounds points={trackPts} />}
+          {activeTab === 'history' && curPt && playing && <FlyTo lat={curPt.lat} lng={curPt.lng} zoom={14} />}
 
           {/* Live: single selected vehicle */}
           {activeTab === 'live' && selectedReg && liveCur && (<>
@@ -907,7 +949,7 @@ export default function VTSMap() {
               <Polyline positions={liveCur.trail}
                 pathOptions={{ color: '#52c41a', weight: 4, opacity: 0.7, dashArray: '10 6' }} />
             )}
-            <Marker position={[liveCur.lat, liveCur.lng]} icon={makeVehicleIcon('#52c41a', true)}>
+            <Marker position={[liveCur.lat, liveCur.lng]} icon={makeVehicleIcon('#52c41a', true, liveCur.heading ?? 0)}>
               <Popup className="dark-popup" minWidth={300}>
                 <DarkPopup v={liveCur} onCopy={copyCoords} />
               </Popup>
@@ -922,7 +964,7 @@ export default function VTSMap() {
             ))}
             {liveAll.map(v => (
               <Marker key={v.key} position={[v.lat, v.lng]}
-                icon={makeVehicleIcon(STATUS_COLOR[v.status] ?? '#52c41a', false)}
+                icon={makeVehicleIcon(STATUS_COLOR[v.status] ?? '#52c41a', false, v.heading ?? 0)}
                 eventHandlers={{ click: () => onSelect(v.vehicle) }}>
                 <Popup className="dark-popup" minWidth={300}>
                   <DarkPopup v={v} onCopy={copyCoords} />
@@ -933,49 +975,40 @@ export default function VTSMap() {
 
           {/* History route */}
           {activeTab === 'history' && trackPts.length > 0 && (<>
+            {/* Full path polyline — always visible */}
             <Polyline positions={trackPts.map(p => [p.lat, p.lng])}
-              pathOptions={{ color: accent, weight: 3.5, opacity: 0.8 }} />
-            {trackPts.map((p, i) => (
+              pathOptions={{ color: accent, weight: 3.5, opacity: 0.85 }} />
+
+            {/* Small dot markers for all track points */}
+            {trackPts.map((p, i) => i !== playIdx && (
               <CircleMarker key={i} center={[p.lat, p.lng]}
-                radius={i === playIdx ? 10 : (dispMode === 'Dots' ? 2.5 : 4)}
+                radius={3}
                 pathOptions={{
-                  color:       i === playIdx ? '#ff4d4f' : (p.engineStatus === 'running' ? '#52c41a' : '#fa8c16'),
-                  fillColor:   i === playIdx ? '#ff4d4f' : accent,
-                  fillOpacity: 0.9, weight: i === playIdx ? 3 : 1.5,
+                  color: p.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
+                  fillColor: p.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
+                  fillOpacity: 0.75, weight: 1,
                 }}>
                 <Popup className="dark-popup" minWidth={260}>
-                  <div style={{ padding: '12px 14px', color: textPri }}>
-                    <div style={{ fontSize: 10, color: '#58a6ff', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 4 }}>
-                      POINT #{i + 1}
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: textPri, marginBottom: 6 }}>{p.timestamp}</div>
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6 }}>
-                      <div style={{
-                        background: 'rgba(82,196,26,0.15)', border: '1px solid rgba(82,196,26,0.3)',
-                        borderRadius: 8, padding: '4px 10px', textAlign: 'center',
-                      }}>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: '#52c41a' }}>{p.speed}</div>
-                        <div style={{ fontSize: 10, color: textSec }}>km/h</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, color: textSec, marginBottom: 2 }}>POSITION</div>
-                        <div style={{ fontSize: 11, color: textPri, fontFamily: 'monospace' }}>{p.lat.toFixed(6)}, {p.lng.toFixed(6)}</div>
-                        <div style={{ fontSize: 11, color: textSec, marginTop: 4 }}>{p.location}</div>
-                      </div>
-                    </div>
-                    <div style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700,
-                      color: p.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
-                      background: p.engineStatus === 'running' ? 'rgba(82,196,26,0.12)' : 'rgba(250,140,22,0.12)',
-                      border: `1px solid ${p.engineStatus === 'running' ? 'rgba(82,196,26,0.3)' : 'rgba(250,140,22,0.3)'}`,
-                      borderRadius: 20, padding: '2px 10px',
-                    }}>
-                      ● {p.engineStatus === 'running' ? 'ENGINE ON' : 'ENGINE OFF'}
-                    </div>
-                  </div>
+                  <HistoryPointPopup p={p} i={i} />
                 </Popup>
               </CircleMarker>
             ))}
+
+            {/* Vehicle icon (same as live) at current playback position */}
+            {curPt && (
+              <Marker
+                key={`hist-vehicle-${playIdx}`}
+                position={[curPt.lat, curPt.lng]}
+                icon={makeVehicleIcon(
+                  curPt.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
+                  true,
+                  curPt.heading ?? 0
+                )}>
+                <Popup className="dark-popup" minWidth={260}>
+                  <HistoryPointPopup p={curPt} i={playIdx} />
+                </Popup>
+              </Marker>
+            )}
           </>)}
         </MapContainer>
       </div>
