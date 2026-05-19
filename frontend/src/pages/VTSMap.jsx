@@ -10,6 +10,7 @@ import L from 'leaflet';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import { vtsService } from '../services/vtsService';
+import { makeMapMarker } from '../utils/vehicleIcons';
 
 const { Text } = Typography;
 
@@ -20,38 +21,11 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-/* ── Vehicle icon ───────────────────────────────────────────────── */
-function makeVehicleIcon(color = '#52c41a', selected = false, heading = 0) {
-  const sz = selected ? 40 : 32;
-  const half = sz / 2;
-  const glow = selected ? `filter:drop-shadow(0 0 8px ${color});` : '';
-  const pulse = selected
-    ? `<div style="position:absolute;inset:-8px;border-radius:50%;border:2.5px solid ${color};
-         opacity:.6;animation:vtsPulse 1.4s ease-out infinite;pointer-events:none"></div>`
-    : '';
-  return L.divIcon({
-    className: '',
-    html: `<div style="position:relative;width:${sz}px;height:${sz}px">
-      ${pulse}
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"
-           width="${sz}" height="${sz}"
-           style="${glow}filter:drop-shadow(0 3px 8px rgba(0,0,0,.7));display:block">
-        <circle cx="16" cy="16" r="15" fill="${color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.8"/>
-        <path fill="white" d="M21.5 7.5 Q23 7.5 23.5 9.5 L24.5 15 L24.5 22.5
-          Q24.5 24.5 22.5 24.5 L9.5 24.5 Q7.5 24.5 7.5 22.5 L7.5 15
-          L8.5 9.5 Q9 7.5 10.5 7.5 Z"/>
-        <rect fill="${color}" opacity="0.55" x="10" y="10.5" width="12" height="4" rx="1.5"/>
-        <rect fill="${color}" opacity="0.55" x="10" y="20.5" width="12" height="3" rx="1.5"/>
-        <!-- Direction arrow rotated to heading (0=north) -->
-        <g transform="rotate(${heading}, 16, 16)">
-          <polygon points="16,1.5 19.5,8 16,6 12.5,8" fill="white" opacity="0.95"/>
-        </g>
-      </svg>
-    </div>`,
-    iconSize:    [sz, sz],
-    iconAnchor:  [half, half],
-    popupAnchor: [0, -(half + 6)],
-  });
+/* ── Bearing from last 2 trail points ───────────────────────────── */
+function trailBearing(trail) {
+  if (!trail || trail.length < 2) return 0;
+  const n = trail.length;
+  return calcBearing(trail[n - 2][0], trail[n - 2][1], trail[n - 1][0], trail[n - 1][1]);
 }
 
 const TILES = {
@@ -63,24 +37,24 @@ const TILES = {
 
 const STATUS_COLOR = { moving: '#52c41a', parked: '#fa8c16', idle: '#1677ff' };
 
-/* ── Popup card (dark theme) — must live at module scope to avoid
-   React reconciler crash inside Leaflet Popup portal ─────────── */
-function DarkPopup({ v, onCopy }) {
+/* ── Popup card — module scope, theme-aware ──────────────────────── */
+function DarkPopup({ v, onCopy, dark = true }) {
   const speed = typeof v?.speed === 'number' ? v.speed.toFixed(2) : (v?.speed ?? '0.00');
-  const panelBg2 = '#161b22';
-  const textSec  = '#8b949e';
-  const textPri  = '#e6edf3';
+  const panelBg2 = dark ? '#161b22'          : '#f4f6f8';
+  const textSec  = dark ? '#8b949e'          : '#6b7280';
+  const textPri  = dark ? '#e6edf3'          : '#1f2937';
+  const bg       = dark ? '#0d1117'          : '#ffffff';
   return (
-    <div style={{ minWidth: 300, fontFamily: 'inherit', color: '#e6edf3' }}>
+    <div style={{ minWidth: 300, fontFamily: 'inherit', color: textPri, background: bg, borderRadius: 12 }}>
       {/* Header */}
       <div style={{
         padding: '10px 14px 8px',
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
       }}>
         <div>
-          <div style={{ fontSize: 10, color: '#58a6ff', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 2 }}>VEHICLE</div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>{v?.vehicle}</div>
+          <div style={{ fontSize: 10, color: '#1677ff', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 2 }}>VEHICLE</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: textPri, letterSpacing: '-0.02em' }}>{v?.vehicle}</div>
           {v?.positionTime && (
             <div style={{ fontSize: 10, color: textSec, marginTop: 2 }}>{v.positionTime}</div>
           )}
@@ -260,8 +234,8 @@ function SmoothMarker({ position, heading = 0, icon, duration = 800, eventHandle
   );
 }
 
-/* ── Dark popup style injected once ─────────────────────────────── */
-const DARK_POPUP_CSS = `
+/* ── Popup CSS for both themes ───────────────────────────────────── */
+const POPUP_CSS = `
   .dark-popup .leaflet-popup-content-wrapper {
     background: #0d1117; border: 1px solid rgba(255,255,255,0.12);
     border-radius: 12px; padding: 0; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
@@ -269,7 +243,22 @@ const DARK_POPUP_CSS = `
   .dark-popup .leaflet-popup-content { margin: 0; }
   .dark-popup .leaflet-popup-tip { background: #0d1117; }
   .dark-popup .leaflet-popup-close-button { color: rgba(255,255,255,0.5) !important; top: 6px !important; right: 6px !important; }
+
+  .light-popup .leaflet-popup-content-wrapper {
+    background: #ffffff; border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 12px; padding: 0; box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+  }
+  .light-popup .leaflet-popup-content { margin: 0; }
+  .light-popup .leaflet-popup-tip { background: #ffffff; }
+  .light-popup .leaflet-popup-close-button { color: rgba(0,0,0,0.45) !important; top: 6px !important; right: 6px !important; }
 `;
+
+/* ── Captures map instance for external controls ─────────────────── */
+function MapCapture({ onMap }) {
+  const map = useMap();
+  useEffect(() => { onMap(map); return () => onMap(null); }, [map, onMap]);
+  return null;
+}
 
 /* ══════════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -302,12 +291,14 @@ export default function VTSMap() {
   const playRef        = useRef(null);
   const prevLivePosRef = useRef(null);
 
-  /* inject dark popup CSS once */
+  const [leafletMap, setLeafletMap] = useState(null);
+
+  /* inject popup CSS once */
   useEffect(() => {
-    if (!document.getElementById('vts-dark-popup-css')) {
+    if (!document.getElementById('vts-popup-css')) {
       const s = document.createElement('style');
-      s.id = 'vts-dark-popup-css';
-      s.textContent = DARK_POPUP_CSS;
+      s.id = 'vts-popup-css';
+      s.textContent = POPUP_CSS;
       document.head.appendChild(s);
     }
   }, []);
@@ -957,8 +948,8 @@ export default function VTSMap() {
       ══════════════════════════════════════════════════════════ */}
       <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
 
-        {/* Layer switcher */}
-        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1000 }}>
+        {/* Layer switcher + zoom buttons (stacked in top-right) */}
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <div style={{
             background: 'rgba(13,17,23,0.88)', backdropFilter: 'blur(8px)',
             border: `1px solid ${border}`, borderRadius: 10, padding: '3px 4px',
@@ -969,11 +960,27 @@ export default function VTSMap() {
                 style={{
                   background: mapLayer === k ? accent : 'transparent',
                   border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer',
-                  color: mapLayer === k ? '#fff' : textSec, fontSize: 10, fontWeight: 600,
+                  color: mapLayer === k ? '#fff' : '#e6edf3', fontSize: 10, fontWeight: 600,
                   transition: 'all 0.2s',
                 }}>
                 {v.label}
               </button>
+            ))}
+          </div>
+          {/* Zoom controls */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {[{ label: '+', fn: () => leafletMap?.zoomIn() }, { label: '−', fn: () => leafletMap?.zoomOut() }].map(z => (
+              <button key={z.label} onClick={z.fn}
+                style={{
+                  width: 34, height: 34, background: 'rgba(13,17,23,0.88)', backdropFilter: 'blur(8px)',
+                  border: `1px solid ${border}`, borderRadius: 8, cursor: 'pointer',
+                  color: '#e6edf3', fontSize: 18, fontWeight: 300, lineHeight: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = accent; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(13,17,23,0.88)'; }}
+              >{z.label}</button>
             ))}
           </div>
         </div>
@@ -1028,11 +1035,13 @@ export default function VTSMap() {
           center={[23.8, 90.4]} zoom={7}
           style={{ height: '100%', width: '100%' }}
           scrollWheelZoom
+          zoomControl={false}
         >
           <TileLayer key={mapLayer} url={TILES[mapLayer].url}
             attribution={TILES[mapLayer].attribution ?? ''}
             subdomains={mapLayer === 'dark' ? 'abcd' : 'abc'} />
           <ResizeHandler trigger={selectedReg} />
+          <MapCapture onMap={setLeafletMap} />
 
           {/* Fly to selected vehicle */}
           {activeTab === 'live' && liveCur && <FlyTo lat={liveCur.lat} lng={liveCur.lng} zoom={14} />}
@@ -1041,40 +1050,41 @@ export default function VTSMap() {
 
           {/* Live: single selected vehicle — smooth GPS-style movement */}
           {activeTab === 'live' && selectedReg && liveCur && (<>
-            {liveCur.trail?.length > 1 && (
-              <Polyline positions={liveCur.trail}
+            {/* Trail excludes last point (destination) to prevent road jumping ahead of vehicle */}
+            {liveCur.trail?.length > 2 && (
+              <Polyline positions={liveCur.trail.slice(0, -1)}
                 pathOptions={{ color: '#52c41a', weight: 4, opacity: 0.7, dashArray: '10 6' }} />
             )}
             <SmoothMarker
               key={`live-${selectedReg}`}
               position={[liveCur.lat, liveCur.lng]}
               heading={liveBearing}
-              icon={makeVehicleIcon('#52c41a', true, liveBearing)}
+              icon={makeMapMarker(liveCur.vehicleIcon ?? selDev?.vehicleIcon ?? 'car', '#52c41a', true, liveBearing)}
               duration={4500}
             >
-              <Popup className="dark-popup" minWidth={300}>
-                <DarkPopup v={liveCur} onCopy={copyCoords} />
+              <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
+                <DarkPopup v={liveCur} onCopy={copyCoords} dark={isDark} />
               </Popup>
             </SmoothMarker>
           </>)}
 
-          {/* Live: all vehicles — each marker smoothly tracks its own GPS updates */}
+          {/* Live: all vehicles */}
           {activeTab === 'live' && !selectedReg && (<>
-            {liveAll.filter(v => v.trail?.length > 1).map(v => (
-              <Polyline key={`trail-${v.key}`} positions={v.trail}
+            {liveAll.filter(v => v.trail?.length > 2).map(v => (
+              <Polyline key={`trail-${v.key}`} positions={v.trail.slice(0, -1)}
                 pathOptions={{ color: STATUS_COLOR[v.status] ?? '#52c41a', weight: 3, opacity: 0.5, dashArray: '8 5' }} />
             ))}
             {liveAll.map(v => (
               <SmoothMarker
                 key={v.key}
                 position={[v.lat, v.lng]}
-                heading={v.heading ?? 0}
-                icon={makeVehicleIcon(STATUS_COLOR[v.status] ?? '#52c41a', false, v.heading ?? 0)}
+                heading={trailBearing(v.trail)}
+                icon={makeMapMarker(v.vehicleIcon ?? 'car', STATUS_COLOR[v.status] ?? '#52c41a', false, trailBearing(v.trail))}
                 duration={4500}
                 eventHandlers={{ click: () => onSelect(v.vehicle) }}
               >
-                <Popup className="dark-popup" minWidth={300}>
-                  <DarkPopup v={v} onCopy={copyCoords} />
+                <Popup className={isDark ? 'dark-popup' : 'light-popup'} minWidth={300}>
+                  <DarkPopup v={v} onCopy={copyCoords} dark={isDark} />
                 </Popup>
               </SmoothMarker>
             ))}
@@ -1082,7 +1092,7 @@ export default function VTSMap() {
 
           {/* History route */}
           {activeTab === 'history' && trackPts.length > 0 && (<>
-            {/* Full path polyline — always visible */}
+            {/* Full path polyline */}
             <Polyline positions={trackPts.map(p => [p.lat, p.lng])}
               pathOptions={{ color: accent, weight: 3.5, opacity: 0.85 }} />
 
@@ -1107,7 +1117,8 @@ export default function VTSMap() {
                 key={`hist-${selectedReg}`}
                 position={[curPt.lat, curPt.lng]}
                 heading={histBearing}
-                icon={makeVehicleIcon(
+                icon={makeMapMarker(
+                  selDev?.vehicleIcon ?? 'car',
                   curPt.engineStatus === 'running' ? '#52c41a' : '#fa8c16',
                   true,
                   histBearing

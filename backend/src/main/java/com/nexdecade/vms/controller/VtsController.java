@@ -307,6 +307,7 @@ public class VtsController {
             m.put("isActive",     trip != null);
             m.put("vehicleMake",  veh != null ? veh.getMake() + " " + veh.getModel() : "");
             m.put("vehicleType",  veh != null ? veh.getType() : "");
+            m.put("vehicleIcon",  veh != null && veh.getVehicleIcon() != null ? veh.getVehicleIcon() : "car");
             m.put("label",        dev.getVehicleReg()
                 + (veh != null ? "  ·  " + veh.getMake() + " " + veh.getModel() : ""));
             return m;
@@ -490,6 +491,7 @@ public class VtsController {
         m.put("vehicle",      d.getVehicleReg());
         m.put("vehicleType",  veh != null ? veh.getType() : "Vehicle");
         m.put("vehicleMake",  veh != null ? veh.getMake() + " " + veh.getModel() : "");
+        m.put("vehicleIcon",  veh != null && veh.getVehicleIcon() != null ? veh.getVehicleIcon() : "car");
         m.put("driver",       d.getDriverName());
         m.put("origin",       d.getOrigin());
         m.put("destination",  d.getDestination());

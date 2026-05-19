@@ -62,6 +62,9 @@ public class Vehicle {
     @Column(nullable = false, length = 10, columnDefinition = "VARCHAR(10) DEFAULT 'active'")
     private String status;
 
+    @Column(length = 40, columnDefinition = "VARCHAR(40) DEFAULT 'car'")
+    private String vehicleIcon;
+
     @CreationTimestamp @Column(updatable = false)
     private LocalDateTime createdAt;
 

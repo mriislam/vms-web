@@ -1,6 +1,7 @@
 import {
   CarOutlined, DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined,
 } from '@ant-design/icons';
+import { VEHICLE_ICONS, iconPickerSvg } from '../utils/vehicleIcons';
 import {
   Button, Card, Col, DatePicker, Descriptions, Drawer, Form, Input, InputNumber,
   Popconfirm, Row, Select, Spin, Table, Tag, message,
@@ -16,6 +17,35 @@ import { vehicleService } from '../services/vehicleService';
 import { formatCurrency, formatDate, statusColor } from '../utils/helpers';
 
 const OWNERSHIP_COLOR = { Private: 'blue', Government: 'green', Special: 'purple' };
+
+function VehicleIconPicker({ value, onChange }) {
+  const sel = value || 'car';
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {VEHICLE_ICONS.map(icon => (
+        <div
+          key={icon.key}
+          onClick={() => onChange(icon.key)}
+          title={icon.label}
+          style={{
+            width: 64, textAlign: 'center', cursor: 'pointer', padding: '6px 4px 4px',
+            borderRadius: 8, border: `2px solid ${sel === icon.key ? '#1677ff' : '#d9d9d9'}`,
+            background: sel === icon.key ? '#e6f4ff' : '#fafafa',
+            transition: 'all 0.15s',
+          }}
+        >
+          <svg
+            viewBox="0 0 32 32" width="36" height="36"
+            dangerouslySetInnerHTML={{ __html: iconPickerSvg(icon.key) }}
+          />
+          <div style={{ fontSize: 9, color: sel === icon.key ? '#1677ff' : '#666', marginTop: 2, fontWeight: sel === icon.key ? 700 : 400 }}>
+            {icon.label}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const COLUMNS_DEF = [
   { key: 'regNo',           columnTitle: 'Reg No',           title: 'Reg No',           dataIndex: 'regNo' },
@@ -83,6 +113,7 @@ export default function Vehicles() {
     setEditRecord(record);
     form.setFieldsValue({
       ...record,
+      vehicleIcon:     record.vehicleIcon     || 'car',
       insuranceExpiry: record.insuranceExpiry ? dayjs(record.insuranceExpiry) : null,
       purchaseDate:    record.purchaseDate    ? dayjs(record.purchaseDate)    : null,
       lastService:     record.lastService     ? dayjs(record.lastService)     : null,
@@ -204,6 +235,12 @@ export default function Vehicles() {
             <Row gutter={16}>
               <Col span={8}><Form.Item name="lastService" label="Last Service Date"><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
             </Row>
+          </FormSection>
+
+          <FormSection title="Map Icon" color="#722ed1">
+            <Form.Item name="vehicleIcon" label="Select icon shown on the VTS map" initialValue="car">
+              <VehicleIconPicker />
+            </Form.Item>
           </FormSection>
         </Form>
       </FormModal>
