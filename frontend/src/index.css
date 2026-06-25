@@ -38,6 +38,29 @@ html, body, #root {
   font-size: 13px;
 }
 
+/* ── fixed column must be opaque so scrolled content doesn't show through ── */
+.ant-table-cell-fix-left,
+.ant-table-cell-fix-right {
+  background: #fff !important;
+}
+.ant-table-thead > tr > .ant-table-cell-fix-left,
+.ant-table-thead > tr > .ant-table-cell-fix-right {
+  background: #fafafa !important;
+}
+.ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
+.ant-table-tbody > tr:hover > .ant-table-cell-fix-right {
+  background: #fafafa !important;
+}
+/* dark mode */
+[data-theme="dark"] .ant-table-cell-fix-left,
+[data-theme="dark"] .ant-table-cell-fix-right {
+  background: #141414 !important;
+}
+[data-theme="dark"] .ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
+[data-theme="dark"] .ant-table-tbody > tr:hover > .ant-table-cell-fix-right {
+  background: #1d1d1d !important;
+}
+
 /* ── sidebar menu group label ── */
 .ant-menu-item-group-title {
   font-size: 10px !important;

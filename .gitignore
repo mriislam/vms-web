@@ -1,47 +1,77 @@
-# Node
+# ── Node / Frontend ──────────────────────────────────────────────
 node_modules/
 dist/
+frontend/dist/
+frontend/.vite/
+frontend/node_modules/
+
+# Environment / secrets — keep .example files
 .env
 .env.local
+.env.*.local
 .env.production
+.env.development
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+!.env.example
 
-# Java / Maven
+# ── Java / Maven / Spring Boot ───────────────────────────────────
 backend/target/
 *.class
+*.jar
 *.war
 *.ear
 *.iml
-# Keep Maven wrapper scripts/properties; only ignore the downloaded jar binary
 backend/.mvn/wrapper/maven-wrapper.jar
 
-# Upgrade assistant artifacts
-.github/java-upgrade/
-backend/.github/
+# Spring Boot sensitive config — use application.properties.example
+backend/src/main/resources/application.properties
+backend/src/main/resources/application-*.properties
+!backend/src/main/resources/application.properties.example
+backend/src/main/resources/*.p12
+backend/src/main/resources/*.jks
+backend/src/main/resources/*.pfx
 
-# IDE
+# ── IDE ──────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.suo
 *.user
 *.sln.docstates
+*.swp
+*.swo
+.project
+.classpath
+.settings/
 
-# OS
+# ── OS ───────────────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
 
-# Logs
+# ── Logs ─────────────────────────────────────────────────────────
 *.log
 logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Coverage
+# ── Test / Coverage ──────────────────────────────────────────────
 coverage/
+*.lcov
+.nyc_output/
 
-# Vite
-frontend/dist/
-frontend/.vite/
-
-# Uploads
+# ── Uploads ──────────────────────────────────────────────────────
 uploads/
 
-# Claude Code
+# ── Upgrade assistant / CI artifacts ─────────────────────────────
+.github/java-upgrade/
+backend/.github/
+
+# ── Claude Code ──────────────────────────────────────────────────
 .claude/

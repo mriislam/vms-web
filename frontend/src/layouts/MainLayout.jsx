@@ -1,8 +1,10 @@
 import { Grid, Layout } from 'antd';
+import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import AppHeader from './Header';
 import AppSidebar from './Sidebar';
 import { useUIStore } from '../stores/uiStore';
+import { initFcm, requestNotificationPermission } from '../utils/firebase';
 
 const { Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -17,6 +19,12 @@ export default function MainLayout() {
   const screens   = useBreakpoint();
 
   // On xs/sm screens the sidebar is always icon-only and doesn't push content
+  useEffect(() => {
+    requestNotificationPermission().then((granted) => {
+      if (granted) initFcm();
+    });
+  }, []);
+
   const isMobile    = !screens.md;
   const marginLeft  = isMobile ? SIDEBAR_COLLAPSED_W : (collapsed ? SIDEBAR_COLLAPSED_W : SIDEBAR_W);
   const contentPad  = isMobile ? '8px 8px' : '10px 14px';

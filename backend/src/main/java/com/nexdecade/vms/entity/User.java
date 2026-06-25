@@ -43,6 +43,9 @@ public class User {
     private LocalDateTime lastLogin;
     @Builder.Default private Integer loginCount = 0;
 
+    @Column(length = 500)
+    private String fcmToken;
+
     @CreationTimestamp @Column(updatable = false)
     private LocalDateTime createdAt;
 

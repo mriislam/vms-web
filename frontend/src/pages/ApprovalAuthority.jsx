@@ -14,6 +14,7 @@ const LEVEL_COLOR   = { 1: 'blue', 2: 'purple', 3: 'red' };
 const SCOPE_COLOR   = { department: 'cyan', zone: 'green', all: 'orange' };
 
 const MOCK_DATA = [
+  { id: 0, name: 'Administrator',        designation: 'System Admin',     department: 'All',         level: 3, scope: 'all',        maxVehicles: 50, active: true,  email: 'admin@nexdecade.com',    phone: '—' },
   { id: 1, name: 'Md. Rafiqul Islam',   designation: 'Fleet Manager',   department: 'Operations', level: 1, scope: 'all',        maxVehicles: 10, active: true,  email: 'rafiq@nexdecade.com',    phone: '01711-000001' },
   { id: 2, name: 'Sultana Begum',        designation: 'Admin Head',       department: 'Admin',       level: 2, scope: 'department', maxVehicles: 5,  active: true,  email: 'sultana@nexdecade.com',  phone: '01711-000002' },
   { id: 3, name: 'Karim Hossain',        designation: 'Operations Lead',  department: 'Operations', level: 1, scope: 'department', maxVehicles: 3,  active: true,  email: 'karim@nexdecade.com',    phone: '01711-000003' },

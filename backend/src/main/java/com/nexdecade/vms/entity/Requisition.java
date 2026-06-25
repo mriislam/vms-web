@@ -32,10 +32,10 @@ public class Requisition {
     private LocalDate fromDate;
     private LocalDate toDate;
 
-    @Column(length = 100)
+    @Column(length = 255)
     private String fromLocation;
 
-    @Column(length = 100)
+    @Column(length = 255)
     private String toLocation;
 
     @Builder.Default private Integer passengers = 1;
@@ -53,6 +53,25 @@ public class Requisition {
 
     @Column(nullable = false, length = 10, columnDefinition = "VARCHAR(10) DEFAULT 'pending'")
     private String status;
+
+    // Geo-coordinates populated by Google Maps Places picker
+    private Double fromLat;
+    private Double fromLng;
+    private Double toLat;
+    private Double toLng;
+
+    private Integer distanceKm;
+
+    // Full datetime for trip scheduling (replaces date-only fromDate/toDate)
+    private LocalDateTime fromDatetime;
+    private LocalDateTime toDatetime;
+
+    @Builder.Default
+    @Column(name = "geofence_radius_m", nullable = false, columnDefinition = "INT DEFAULT 500")
+    private Integer geofenceRadiusM = 500;
+
+    // Assigned driver (FK to drivers.id)
+    private Integer driverId;
 
     @CreationTimestamp @Column(updatable = false)
     private LocalDateTime createdAt;

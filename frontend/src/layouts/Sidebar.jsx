@@ -102,9 +102,11 @@ const MENU_GROUPS = [
     key: 'people', color: '#9254de', label: 'People',
     icon: <TeamOutlined />,
     children: [
-      { key: '/driver-leave', icon: <UserOutlined />,         color: '#eb2f96', label: 'Driver Leave' },
-      { key: '/coordinators', icon: <TeamOutlined />,         color: '#52c41a', label: 'Coordinators' },
-      { key: '/notices',      icon: <NotificationOutlined />, color: '#faad14', label: 'Notices' },
+      { key: '/employees',     icon: <TeamOutlined />,         color: '#9254de', label: 'Employees' },
+      { key: '/driver-leave',  icon: <UserOutlined />,         color: '#eb2f96', label: 'Driver Leave' },
+      { key: '/coordinators',  icon: <TeamOutlined />,         color: '#52c41a', label: 'Coordinators' },
+      { key: '/notices',       icon: <NotificationOutlined />, color: '#faad14', label: 'Notices' },
+      { key: '/driver/trips',  icon: <CarOutlined />,          color: '#13c2c2', label: 'Driver Portal' },
     ],
   },
   {

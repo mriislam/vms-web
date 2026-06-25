@@ -46,6 +46,9 @@ public class Driver {
     private LocalDate lastTrip;
     @Builder.Default private Integer totalTrips = 0;
 
+    // Linked user account for driver portal login
+    private Long userId;
+
     @CreationTimestamp @Column(updatable = false)
     private LocalDateTime createdAt;
 

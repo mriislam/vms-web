@@ -1,0 +1,44 @@
+server.port=8080
+
+# ── Database ──
+spring.datasource.url=jdbc:mysql://localhost:3306/vms_db?useSSL=false&serverTimezone=Asia/Dhaka&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+spring.datasource.username=root
+spring.datasource.password=YOUR_MYSQL_PASSWORD
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+# ── JPA ──
+spring.jpa.hibernate.ddl-auto=none
+spring.jpa.show-sql=false
+spring.jpa.open-in-view=false
+
+# ── Jackson ──
+spring.jackson.date-format=yyyy-MM-dd
+spring.jackson.serialization.write-dates-as-timestamps=false
+spring.jackson.deserialization.fail-on-unknown-properties=false
+spring.jackson.time-zone=Asia/Dhaka
+
+# ── JWT ──
+vms.jwt.secret=YOUR_JWT_SECRET_MIN_256_BITS
+vms.jwt.expiration=86400000
+
+# ── File Upload ──
+spring.servlet.multipart.max-file-size=20MB
+spring.servlet.multipart.max-request-size=20MB
+vms.upload.dir=/opt/vms/uploads/notices
+
+# ── Logging ──
+logging.level.com.nexdecade.vms=INFO
+
+# ── Payload Encryption (AES-256-GCM) ──
+vms.encryption.enabled=true
+vms.encryption.secret-key=YOUR_AES256_SECRET_KEY
+
+# ── Email (SMTP) ──
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=YOUR_EMAIL@gmail.com
+spring.mail.password=YOUR_APP_PASSWORD
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+# ── Notification settings ──
+vms.notification.enabled=true
