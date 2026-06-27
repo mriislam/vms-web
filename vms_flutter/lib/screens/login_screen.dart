@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../core/constants.dart';
 import '../providers/auth_provider.dart';
@@ -39,24 +40,29 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(children: [
             const SizedBox(height: 40),
 
-            // ── Logo ──────────────────────────────────────────────────────────
+            // ── NEXVMS Logo ───────────────────────────────────────────────────
             Container(
-              width: 88, height: 88,
+              width: 110, height: 110,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, Color(0xFF8B5CF6)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [BoxShadow(
-                  color: AppColors.primary.withOpacity(0.4),
-                  blurRadius: 20, offset: const Offset(0, 8))]),
-              child: const Center(child: Text('🚗', style: TextStyle(fontSize: 40))),
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF16A34A).withOpacity(0.25),
+                    blurRadius: 24, offset: const Offset(0, 8)),
+                  BoxShadow(color: const Color(0xFF1D4ED8).withOpacity(0.2),
+                    blurRadius: 16, offset: const Offset(-4, 4)),
+                ]),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: SvgPicture.asset('assets/nexvms-logo.svg',
+                  fit: BoxFit.contain),
+              ),
             ),
-            const SizedBox(height: 16),
-            const Text('VMS', style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900,
-              color: AppColors.primary, letterSpacing: -1)),
-            const Text('FLEET MANAGER', style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-              letterSpacing: 3, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 18),
+            const Text('NEXVMS', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900,
+              color: AppColors.primary, letterSpacing: -1.5)),
+            const Text('FLEET MANAGEMENT SYSTEM', style: TextStyle(fontSize: 10,
+              color: AppColors.textMuted, letterSpacing: 2.5, fontWeight: FontWeight.w700)),
             const SizedBox(height: 40),
 
             // ── Card ──────────────────────────────────────────────────────────

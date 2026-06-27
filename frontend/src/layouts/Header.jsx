@@ -21,7 +21,7 @@ const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const PAGE_META = {
-  '/dashboard':           { title: 'Dashboard',              color: '#6366f1' },
+  '/dashboard':           { title: 'NEXVMS Dashboard',       color: '#6366f1' },
   '/vehicles':            { title: 'Vehicles',               color: '#10b981' },
   '/drivers':             { title: 'Drivers',                color: '#06b6d4' },
   '/accidents':           { title: 'Accident / Occurrence',  color: '#f43f5e' },

@@ -261,23 +261,18 @@ export default function AppSidebar({ isMobile = false }) {
         background: isDark ? 'rgba(99,102,241,0.04)' : 'rgba(99,102,241,0.03)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flex: 1, minWidth: 0 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-            background: 'linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#06b6d4 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(99,102,241,0.45)',
-          }}>
-            <CarOutlined style={{ fontSize: 16, color: '#fff' }} />
-          </div>
+          <img src="/nexvms-logo.svg" alt="NEXVMS"
+            style={{ width: 36, height: 36, flexShrink: 0, objectFit: 'contain',
+              filter: 'drop-shadow(0 2px 8px rgba(22,163,74,0.4))' }} />
           {!effectiveCollapsed && (
             <div style={{ overflow: 'hidden' }}>
               <div style={{
-                fontSize: 14, fontWeight: 900, lineHeight: 1.2,
-                letterSpacing: '-0.03em', whiteSpace: 'nowrap',
+                fontSize: 15, fontWeight: 900, lineHeight: 1.15,
+                letterSpacing: '-0.04em', whiteSpace: 'nowrap',
                 background: logoBgText,
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
               }}>
-                VMS
+                NEXVMS
               </div>
               <div style={{ fontSize: 9, color: subTextClr, letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap', fontWeight: 700 }}>
                 Fleet Manager

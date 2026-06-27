@@ -23,7 +23,7 @@ class VmsApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title:           'VMS Fleet Manager',
+    title:           'NEXVMS',
     debugShowCheckedModeBanner: false,
     theme:           buildTheme(),
     home:            const _Root(),
