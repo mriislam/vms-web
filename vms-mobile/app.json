@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "VMS Fleet Manager",
+    "slug": "vms-fleet-manager",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#6366f1"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nexdecade.vms",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "VMS needs your location to track trips and trigger geofences.",
+        "NSLocationAlwaysUsageDescription": "VMS tracks your location in the background to auto-start/end trips.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "VMS needs background location access for geofencing."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#6366f1"
+      },
+      "package": "com.nexdecade.vms",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow VMS to use your location for trip tracking."
+        }
+      ],
+      "expo-task-manager"
+    ],
+    "extra": {
+      "apiBaseUrl": "https://demo-vms.nexdecade.com/api",
+      "googleMapsKey": "AIzaSyA2TlfKOISQJAB4ph4ph1BN1pAuF8lVavo"
+    }
+  }
+}
