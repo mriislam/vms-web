@@ -1,21 +1,25 @@
 import {
   CarOutlined, CheckOutlined, CheckCircleOutlined, ClockCircleOutlined,
-  CloseOutlined, EditOutlined, EyeOutlined,
-  SafetyOutlined, SearchOutlined, ThunderboltOutlined,
+  CloseOutlined, EditOutlined, EnvironmentOutlined, EyeOutlined,
+  InfoCircleOutlined, PlusOutlined, SafetyOutlined, SearchOutlined,
+  SendOutlined, ThunderboltOutlined, UserOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Badge, Button, Col, Descriptions, Drawer, Form, Input,
-  InputNumber, Popconfirm, Row, Select, Spin, Table,
-  Tabs, Tag, Tooltip, message,
+  Badge, Button, Col, DatePicker, Descriptions, Drawer, Form, Input,
+  InputNumber, Modal, Popconfirm, Row, Select, Spin, Table,
+  Tabs, Tag, Tooltip, Typography, message,
 } from 'antd';
+import dayjs from 'dayjs';
 import { useState } from 'react';
 import ColumnPicker from '../components/ColumnPicker';
 import FormModal, { FormSection } from '../components/FormModal';
 import PageHeader from '../components/PageHeader';
+
+const { Text } = Typography;
 import { useApiCrud } from '../hooks/useApiCrud';
 import { useColumnPicker } from '../hooks/useColumnPicker';
-import { filterOption, useDriverNameOptions, useDriverOptions, useVehicleOptions } from '../hooks/useLookupOptions';
+import { filterOption, useDriverNameOptions, useDriverOptions, useVehicleOptions, useVehicleWithDriverMap } from '../hooks/useLookupOptions';
 import { dispatchService } from '../services/dispatchService';
 import { requisitionService } from '../services/requisitionService';
 import { useAuthStore } from '../stores/authStore';
@@ -115,6 +119,11 @@ export default function ManageTrip() {
   const vehicleOptions    = useVehicleOptions();
   const driverOptions     = useDriverOptions();
   const driverNameOptions = useDriverNameOptions();
+  const { vehicles: allVehicles, drivers: allDrivers, driverByName } = useVehicleWithDriverMap();
+
+  // selectedVehicleInfo is set when user picks a vehicle in approve form
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [driverAutoFilled, setDriverAutoFilled] = useState(false);
 
   /* ── Column pickers (must be called before columns are built) */
   const {
@@ -143,6 +152,14 @@ export default function ManageTrip() {
 
   const { data: tripData, isLoading: tripLoading, save: saveTrip, isSaving } =
     useApiCrud('vehicle-requisition', dispatchService, { onSaveSuccess: () => setEditOpen(false) });
+
+  // Build vehicleReg → last driver map from dispatch history (for auto-fill)
+  const vehicleLastDriverMap = {};
+  tripData.forEach((d) => {
+    if (d.vehicleReg && d.driverName && !vehicleLastDriverMap[d.vehicleReg]) {
+      vehicleLastDriverMap[d.vehicleReg] = d.driverName;
+    }
+  });
 
   /* ── Mutations ─────────────────────────────────────────────── */
   const advanceMut = useMutation({
@@ -189,7 +206,23 @@ export default function ManageTrip() {
     setApprovingReq(req);
     approveForm.resetFields();
     approveForm.setFieldValue('approvedBy', authUser?.fullName ?? 'Admin');
+    setSelectedVehicle(null);
+    setDriverAutoFilled(false);
     setApproveOpen(true);
+  }
+
+  function onVehicleSelect(vehicleReg) {
+    const vInfo = allVehicles.find((v) => v.regNo === vehicleReg);
+    setSelectedVehicle(vInfo ?? { regNo: vehicleReg });
+
+    // Auto-fill driver from dispatch history
+    const lastDriver = vehicleLastDriverMap[vehicleReg];
+    if (lastDriver) {
+      approveForm.setFieldValue('driver', lastDriver);
+      setDriverAutoFilled(true);
+    } else {
+      setDriverAutoFilled(false);
+    }
   }
 
   function handleApprove() {
@@ -240,7 +273,15 @@ export default function ManageTrip() {
             {r.status !== 'completed' && (
               <Tooltip title="Edit">
                 <Button type="link" size="small" icon={<EditOutlined />}
-                  onClick={() => { setEditTrip(r); editForm.setFieldsValue(r); setEditOpen(true); }} />
+                  onClick={() => {
+                    setEditTrip(r);
+                    editForm.setFieldsValue({
+                      ...r,
+                      startTime: r.startTime ? dayjs(r.startTime) : null,
+                      endTime:   r.endTime   ? dayjs(r.endTime)   : null,
+                    });
+                    setEditOpen(true);
+                  }} />
               </Tooltip>
             )}
             {ns && (
@@ -416,90 +457,623 @@ export default function ManageTrip() {
         )}
       </Drawer>
 
-      {/* ── Approve & Assign modal ─────────────────────────────── */}
-      <FormModal
+      {/* ══ Approve & Assign Modal — beautifully redesigned ══════ */}
+      <Modal
         open={approveOpen}
-        onClose={() => { setApproveOpen(false); setApprovingReq(null); }}
-        onSubmit={handleApprove}
-        confirmLoading={approveMut.isPending}
-        icon={<SafetyOutlined />} color="#52c41a"
-        title={`Approve — ${approvingReq?.reqNo ?? ''}`}
-        subtitle={`${approvingReq?.requestedBy ?? ''} · ${approvingReq?.purpose ?? ''}`}
-        okText="Approve & Create Dispatch"
-        width={560}
+        onCancel={() => { setApproveOpen(false); setApprovingReq(null); setSelectedVehicle(null); }}
+        footer={null}
+        width={860}
+        style={{ top: '4vh', padding: 0 }}
+        destroyOnClose
+        closeIcon={null}
+        styles={{
+          content: { padding: 0, borderRadius: 22, overflow: 'hidden' },
+          mask:    { backdropFilter: 'blur(8px)' },
+        }}
       >
-        <Form form={approveForm} layout="vertical" size="small">
-          {approvingReq && (
+        {/* ── Gradient header ────────────────────────────────── */}
+        <div style={{
+          background: 'linear-gradient(135deg,#059669 0%,#0891b2 60%,#6366f1 100%)',
+          padding: '16px 24px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{ position: 'absolute', right: -40, top: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '50%', bottom: -50, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, zIndex: 1 }}>
             <div style={{
-              background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 8,
-              padding: '10px 14px', marginBottom: 16, fontSize: 12,
+              width: 44, height: 44, borderRadius: 13, background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.35)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#fff',
             }}>
-              <div><b>From:</b> {approvingReq.fromLocation ?? '—'}</div>
-              <div><b>To:</b>   {approvingReq.toLocation   ?? '—'}</div>
-              <div style={{ marginTop: 4 }}>
-                <b>Date:</b> {formatDate(approvingReq.date)} &nbsp;·&nbsp;
-                <b>Pax:</b> {approvingReq.passengers ?? 1} &nbsp;·&nbsp;
-                <b>Distance:</b> {approvingReq.distanceKm ? `${approvingReq.distanceKm} km` : '—'}
+              <SafetyOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
+                Approve — {approvingReq?.reqNo}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 1 }}>
+                {approvingReq?.requestedBy} · {approvingReq?.purpose}
               </div>
             </div>
-          )}
-          <FormSection title="Assign Vehicle & Driver" color="#08979c">
-            <Row gutter={12}>
-              <Col span={12}>
-                <Form.Item name="vehicle" label="Vehicle" rules={[{ required: true, message: 'Select a vehicle' }]}>
-                  <Select showSearch placeholder="Select vehicle" options={vehicleOptions} filterOption={filterOption} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="driver" label="Driver" rules={[{ required: true, message: 'Select a driver' }]}>
-                  <Select showSearch placeholder="Select driver" options={driverNameOptions} filterOption={filterOption} />
-                </Form.Item>
-              </Col>
-            </Row>
-          </FormSection>
-          <FormSection title="Approval" color="#52c41a">
-            <Form.Item name="approvedBy" label="Approved By" rules={[{ required: true }]}>
-              <Input placeholder="Your name or title" />
-            </Form.Item>
-          </FormSection>
-        </Form>
-      </FormModal>
+          </div>
 
-      {/* ── Edit trip modal ─────────────────────────────────────── */}
-      <FormModal
-        open={editOpen} onClose={() => setEditOpen(false)}
-        onSubmit={() => editForm.validateFields().then((v) => saveTrip(editTrip?.id, v))}
-        confirmLoading={isSaving}
-        icon={<ThunderboltOutlined />} color="#08979c"
-        title={`Edit Trip — ${editTrip?.dispatchNo ?? ''}`}
-        subtitle="Update vehicle/driver assignment or post-trip data"
-        okText="Save Changes" width={680}
+          <div style={{ display: 'flex', gap: 10, zIndex: 1 }}>
+            <span style={{
+              background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 700, color: '#fff',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <Tag color={({'normal':'blue','high':'orange','urgent':'red'})[approvingReq?.priority] ?? 'default'}
+                style={{ margin: 0, fontSize: 11 }}>
+                {approvingReq?.priority?.toUpperCase()}
+              </Tag>
+              · {approvingReq?.department}
+            </span>
+            <Button
+              type="text" icon={<CloseOutlined />} onClick={() => { setApproveOpen(false); setApprovingReq(null); }}
+              style={{ color: '#fff', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: 10, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            />
+          </div>
+        </div>
+
+        {/* ── Body ───────────────────────────────────────────── */}
+        <div style={{ background: 'linear-gradient(180deg,#f8fbff 0%,#ffffff 100%)', padding: '24px 28px 0' }}>
+          <Form form={approveForm} layout="vertical" size="middle">
+
+            {/* ── TRIP SUMMARY CARD ─────────────────────────── */}
+            {approvingReq && (
+              <div style={{
+                background: '#fff', borderRadius: 16, border: '1px solid rgba(99,102,241,0.12)',
+                padding: '18px 22px', marginBottom: 22,
+                boxShadow: '0 4px 20px rgba(99,102,241,0.08)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <EnvironmentOutlined style={{ color: '#6366f1', fontSize: 15 }} />
+                  <span style={{ fontWeight: 800, fontSize: 13, color: '#6366f1', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                    Trip Details
+                  </span>
+                </div>
+
+                {/* Two-column: route LEFT, stats RIGHT — no wrapping */}
+                <div style={{ display: 'flex', gap: 0, alignItems: 'stretch' }}>
+
+                  {/* LEFT — route connector */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 4, flexShrink: 0 }}>
+                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 0 3px rgba(99,102,241,0.2)' }} />
+                        <div style={{ width: 2, height: 34, background: 'linear-gradient(#6366f1,#10b981)', margin: '5px 0' }} />
+                        <div style={{ width: 12, height: 12, borderRadius: 3, background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.2)' }} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#6366f1', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {approvingReq.fromLocation ?? 'Not specified'}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 12 }}>Pickup location</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#10b981', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {approvingReq.toLocation ?? 'Not specified'}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#94a3b8' }}>Drop-off destination</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ width: 1, background: 'rgba(99,102,241,0.12)', margin: '0 20px', flexShrink: 0 }} />
+
+                  {/* RIGHT — 4 stat cells in a 2×2 grid */}
+                  <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 0' }}>
+                    {[
+                      { label: 'Date',       value: formatDate(approvingReq.date),                                 color: '#6366f1' },
+                      { label: 'Passengers', value: `${approvingReq.passengers ?? 1} pax`,                        color: '#8b5cf6' },
+                      { label: 'Distance',   value: approvingReq.distanceKm ? `${approvingReq.distanceKm} km` : '—', color: '#06b6d4' },
+                      { label: 'Priority',   value: approvingReq.priority?.toUpperCase(),
+                        color: approvingReq.priority === 'urgent' ? '#f43f5e' : approvingReq.priority === 'high' ? '#f97316' : '#10b981' },
+                    ].map((s, i) => (
+                      <div key={s.label} style={{
+                        textAlign: 'center', padding: '6px 20px',
+                        borderLeft:   i % 2 === 1 ? '1px solid rgba(99,102,241,0.1)' : undefined,
+                        borderBottom: i < 2       ? '1px solid rgba(99,102,241,0.1)' : undefined,
+                      }}>
+                        <div style={{ fontSize: 17, fontWeight: 900, color: s.color, lineHeight: 1.2, whiteSpace: 'nowrap' }}>{s.value}</div>
+                        <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 3, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── SECTION: Assign Vehicle & Driver ─────────────── */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <div style={{ width: 4, height: 18, borderRadius: 3, background: 'linear-gradient(#06b6d4,#6366f1)' }} />
+                <CarOutlined style={{ color: '#06b6d4', fontSize: 14 }} />
+                <span style={{ fontWeight: 800, fontSize: 13, color: '#06b6d4', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Assign Vehicle &amp; Driver
+                </span>
+              </div>
+
+              <Row gutter={16}>
+                {/* Vehicle select */}
+                <Col span={12}>
+                  <Form.Item name="vehicle" label={<span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>Vehicle</span>}
+                    rules={[{ required: true, message: 'Select a vehicle' }]} style={{ marginBottom: 0 }}>
+                    <Select
+                      showSearch placeholder="Select vehicle (reg no, make, model)…"
+                      options={vehicleOptions} filterOption={filterOption}
+                      style={{ fontSize: 14 }}
+                      onChange={onVehicleSelect}
+                      optionRender={(opt) => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
+                          <div style={{
+                            width: 36, height: 36, borderRadius: 9, background: 'rgba(6,182,212,0.1)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            <CarOutlined style={{ color: '#06b6d4', fontSize: 16 }} />
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: '#1e293b' }}>{opt.data.value}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>{opt.data.make} {opt.data.model}</div>
+                          </div>
+                          {vehicleLastDriverMap[opt.data.value] && (
+                            <span style={{
+                              marginLeft: 'auto', fontSize: 10, color: '#10b981', fontWeight: 600,
+                              background: 'rgba(16,185,129,0.1)', borderRadius: 6, padding: '2px 6px',
+                            }}>
+                              Has driver
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    />
+                  </Form.Item>
+
+                  {/* Vehicle info card */}
+                  {selectedVehicle && (
+                    <div style={{
+                      marginTop: 10, background: 'rgba(6,182,212,0.06)',
+                      border: '1px solid rgba(6,182,212,0.2)', borderRadius: 12,
+                      padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'center',
+                    }}>
+                      <div style={{
+                        width: 40, height: 40, borderRadius: 10, background: 'rgba(6,182,212,0.12)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      }}>
+                        <CarOutlined style={{ color: '#06b6d4', fontSize: 18 }} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: '#06b6d4' }}>{selectedVehicle.regNo}</div>
+                        <div style={{ fontSize: 12, color: '#475569', marginTop: 1 }}>
+                          {selectedVehicle.make} {selectedVehicle.model} · {selectedVehicle.type} · {selectedVehicle.fuelType}
+                        </div>
+                        <div style={{ fontSize: 11, marginTop: 3 }}>
+                          <span style={{
+                            color: selectedVehicle.status === 'active' ? '#10b981' : '#f59e0b',
+                            fontWeight: 600, background: selectedVehicle.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                            padding: '1px 8px', borderRadius: 6,
+                          }}>
+                            ● {selectedVehicle.status?.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Col>
+
+                {/* Driver select */}
+                <Col span={12}>
+                  <Form.Item
+                    name="driver"
+                    label={
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>Driver</span>
+                        {driverAutoFilled && (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            background: 'rgba(16,185,129,0.12)', color: '#10b981',
+                            fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                            border: '1px solid rgba(16,185,129,0.25)',
+                          }}>
+                            <CheckCircleOutlined style={{ fontSize: 10 }} />
+                            Auto-filled from history
+                          </span>
+                        )}
+                      </div>
+                    }
+                    rules={[{ required: true, message: 'Select a driver' }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select
+                      showSearch placeholder="Select driver or auto-fills when vehicle chosen…"
+                      options={driverNameOptions} filterOption={filterOption}
+                      style={{ fontSize: 14 }}
+                      onChange={() => setDriverAutoFilled(false)}
+                      optionRender={(opt) => {
+                        const d = driverByName[opt.value];
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
+                            <div style={{
+                              width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: '#fff', fontWeight: 800, fontSize: 13,
+                            }}>
+                              {(opt.value ?? '?')[0].toUpperCase()}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: 13, color: '#1e293b' }}>{opt.value}</div>
+                              <div style={{ fontSize: 11, color: '#64748b' }}>
+                                {d ? `Lic: ${d.licenseNo} · ${d.phone}` : opt.label}
+                              </div>
+                            </div>
+                            {d && (
+                              <span style={{
+                                marginLeft: 'auto', fontSize: 10, padding: '2px 6px', borderRadius: 6,
+                                background: d.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                                color: d.status === 'active' ? '#10b981' : '#ef4444', fontWeight: 600,
+                              }}>
+                                {d.status}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      }}
+                    />
+                  </Form.Item>
+
+                  {!selectedVehicle && (
+                    <div style={{
+                      marginTop: 10, background: 'rgba(99,102,241,0.04)',
+                      border: '1px dashed rgba(99,102,241,0.25)', borderRadius: 12,
+                      padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center',
+                    }}>
+                      <InfoCircleOutlined style={{ color: '#6366f1', fontSize: 16, flexShrink: 0 }} />
+                      <Text style={{ fontSize: 12, color: '#6366f1' }}>
+                        Select a vehicle first — driver will auto-fill based on last assignment history.
+                      </Text>
+                    </div>
+                  )}
+                </Col>
+              </Row>
+            </div>
+
+            {/* ── SECTION: Approval Authority ───────────────────── */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <div style={{ width: 4, height: 18, borderRadius: 3, background: 'linear-gradient(#10b981,#059669)' }} />
+                <UserOutlined style={{ color: '#10b981', fontSize: 14 }} />
+                <span style={{ fontWeight: 800, fontSize: 13, color: '#10b981', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Approval Authority
+                </span>
+              </div>
+              <Form.Item name="approvedBy"
+                label={<span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>Approved By</span>}
+                rules={[{ required: true, message: 'Required' }]}
+                style={{ marginBottom: 0 }}>
+                <Input placeholder="Full name or designation of approving authority…"
+                  style={{ height: 42, fontSize: 14, borderRadius: 10 }}
+                  prefix={<UserOutlined style={{ color: '#94a3b8' }} />} />
+              </Form.Item>
+            </div>
+
+          </Form>
+        </div>
+
+        {/* ── Footer ─────────────────────────────────────────── */}
+        <div style={{
+          padding: '16px 28px',
+          borderTop: '1px solid rgba(99,102,241,0.1)',
+          background: 'rgba(248,251,255,0.98)',
+          display: 'flex', gap: 12, justifyContent: 'flex-end', alignItems: 'center',
+        }}>
+          <div style={{ flex: 1, fontSize: 13, color: '#94a3b8' }}>
+            {selectedVehicle
+              ? <span style={{ color: '#06b6d4', fontWeight: 600 }}>Vehicle: {selectedVehicle.regNo} — {selectedVehicle.make} {selectedVehicle.model}</span>
+              : 'Select vehicle and driver to create dispatch'}
+          </div>
+          <Button
+            onClick={() => { setApproveOpen(false); setApprovingReq(null); }}
+            style={{ borderRadius: 10, height: 42, minWidth: 90, fontSize: 14, fontWeight: 600 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="primary" icon={<CheckCircleOutlined />}
+            loading={approveMut.isPending}
+            onClick={handleApprove}
+            style={{
+              borderRadius: 10, height: 42, minWidth: 220, fontWeight: 700, fontSize: 14,
+              background: 'linear-gradient(135deg,#059669,#0891b2)',
+              border: 'none', boxShadow: '0 4px 16px rgba(5,150,105,0.4)',
+            }}
+          >
+            Approve &amp; Create Dispatch
+          </Button>
+        </div>
+      </Modal>
+
+      {/* ══ Edit Trip Modal — redesigned ══════════════════════════ */}
+      <Modal
+        open={editOpen}
+        onCancel={() => setEditOpen(false)}
+        footer={null}
+        width={900}
+        style={{ top: '3vh', padding: 0 }}
+        destroyOnClose
+        closeIcon={null}
+        styles={{
+          content: { padding: 0, borderRadius: 22, overflow: 'hidden' },
+          mask:    { backdropFilter: 'blur(8px)' },
+        }}
       >
-        <Form form={editForm} layout="vertical" size="small">
-          <FormSection title="Assignment" color="#08979c">
-            <Row gutter={12}>
-              <Col span={12}>
-                <Form.Item name="vehicleReg" label="Vehicle" rules={[{ required: true }]}>
-                  <Select showSearch options={vehicleOptions} filterOption={filterOption} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="driverName" label="Driver" rules={[{ required: true }]}>
-                  <Select showSearch options={driverNameOptions} filterOption={filterOption} />
-                </Form.Item>
-              </Col>
-            </Row>
-          </FormSection>
-          <FormSection title="Post-Trip Data" color="#1677ff">
-            <Row gutter={12}>
-              <Col span={8}><Form.Item name="distance"   label="Distance (km)"><InputNumber style={{ width: '100%' }} min={0} /></Form.Item></Col>
-              <Col span={8}><Form.Item name="fuelUsed"   label="Fuel Used (L)" ><InputNumber style={{ width: '100%' }} min={0} /></Form.Item></Col>
-              <Col span={8}><Form.Item name="approvedBy" label="Approved By"   ><Input /></Form.Item></Col>
-            </Row>
-            <Form.Item name="purpose" label="Purpose / Notes"><Input.TextArea rows={2} /></Form.Item>
-          </FormSection>
-        </Form>
-      </FormModal>
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <div style={{
+          background: editTrip?.status === 'in_progress'
+            ? 'linear-gradient(135deg,#0891b2 0%,#6366f1 60%,#8b5cf6 100%)'
+            : editTrip?.status === 'approved'
+            ? 'linear-gradient(135deg,#059669 0%,#06b6d4 100%)'
+            : 'linear-gradient(135deg,#374151 0%,#1e293b 100%)',
+          padding: '16px 24px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{ position: 'absolute', right: -40, top: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, zIndex: 1 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 13, background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.35)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#fff',
+            }}>
+              <ThunderboltOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
+                Edit Trip — {editTrip?.dispatchNo}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 1 }}>
+                {editTrip?.origin} → {editTrip?.destination}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, zIndex: 1, alignItems: 'center' }}>
+            <Tag style={{
+              background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)',
+              color: '#fff', fontWeight: 800, fontSize: 12, borderRadius: 20, padding: '4px 14px',
+            }}>
+              {editTrip?.status?.replace(/_/g,' ').toUpperCase()}
+            </Tag>
+            <Button
+              type="text" icon={<CloseOutlined />} onClick={() => setEditOpen(false)}
+              style={{ color: '#fff', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: 10, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            />
+          </div>
+        </div>
+
+        {/* ── Body ───────────────────────────────────────────────── */}
+        <div style={{ background: '#f8faff', padding: '14px 20px 0', maxHeight: '80vh', overflowY: 'auto' }}>
+          <Form form={editForm} layout="vertical" size="small">
+
+            {/* ── Compact trip summary strip ─────────────────────── */}
+            {editTrip && (
+              <div style={{
+                background: '#fff', borderRadius: 12, border: '1px solid rgba(99,102,241,0.1)',
+                padding: '10px 16px', marginBottom: 12,
+                boxShadow: '0 2px 10px rgba(99,102,241,0.06)',
+                display: 'flex', alignItems: 'center', gap: 0,
+              }}>
+                {/* Route */}
+                <div style={{ flex: 1, display: 'flex', gap: 10, alignItems: 'center', minWidth: 0 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                    <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 0 2px rgba(99,102,241,0.2)' }} />
+                    <div style={{ width: 1.5, height: 20, background: 'linear-gradient(#6366f1,#10b981)', margin: '3px 0' }} />
+                    <div style={{ width: 9, height: 9, borderRadius: 2, background: '#10b981', boxShadow: '0 0 0 2px rgba(16,185,129,0.2)' }} />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#6366f1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{editTrip.origin}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{editTrip.destination}</div>
+                  </div>
+                </div>
+                <div style={{ width: 1, background: 'rgba(99,102,241,0.1)', alignSelf: 'stretch', margin: '0 14px', flexShrink: 0 }} />
+                {/* Inline stats */}
+                <div style={{ display: 'flex', gap: 0, flexShrink: 0 }}>
+                  {[
+                    { label: 'Vehicle',  value: editTrip.vehicleReg,  color: '#06b6d4' },
+                    { label: 'Driver',   value: editTrip.driverName,  color: '#8b5cf6' },
+                    { label: 'Date',     value: formatDate(editTrip.date), color: '#6366f1' },
+                    { label: 'Distance', value: editTrip.distance ? `${editTrip.distance} km` : '—', color: '#10b981' },
+                    { label: 'Fuel',     value: editTrip.fuelUsed ? `${editTrip.fuelUsed} L` : '—', color: '#f59e0b' },
+                  ].map((s, i) => (
+                    <div key={s.label} style={{
+                      textAlign: 'center', padding: '0 12px',
+                      borderLeft: i > 0 ? '1px solid rgba(99,102,241,0.08)' : undefined,
+                    }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: s.color, whiteSpace: 'nowrap' }}>{s.value}</div>
+                      <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ══ IN PROGRESS — Live Trip Controls ═════════════════ */}
+            {editTrip?.status === 'in_progress' && (
+              <div style={{
+                background: 'rgba(6,182,212,0.04)', border: '1.5px solid rgba(6,182,212,0.22)',
+                borderRadius: 12, padding: '12px 16px', marginBottom: 12,
+              }}>
+                {/* Section label */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+                  <div style={{ width: 3, height: 14, borderRadius: 2, background: 'linear-gradient(#06b6d4,#6366f1)' }} />
+                  <div className="live-dot" />
+                  <span style={{ fontWeight: 800, fontSize: 11, color: '#06b6d4', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Live Trip Controls</span>
+                  <span style={{ fontSize: 11, color: '#94a3b8' }}>· Trip is currently in progress</span>
+                </div>
+
+                {/* Both controls in one row */}
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <div style={{ background: '#fff', borderRadius: 10, padding: '10px 12px', border: '1px solid rgba(6,182,212,0.18)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                        <ClockCircleOutlined style={{ color: '#06b6d4', fontSize: 13 }} />
+                        <span style={{ fontWeight: 700, fontSize: 12, color: '#06b6d4' }}>Extend Return Time</span>
+                        {editTrip?.endTime && (
+                          <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 'auto' }}>
+                            Now: {formatDateTime(editTrip.endTime)}
+                          </span>
+                        )}
+                      </div>
+                      <Form.Item name="endTime" style={{ marginBottom: 0 }}>
+                        <DatePicker showTime={{ format: 'HH:mm' }} format="DD MMM YY HH:mm"
+                          placeholder="Set new return time…" style={{ width: '100%' }}
+                          disabledDate={(d) => d && d.isBefore(dayjs().startOf('day'))}
+                          getPopupContainer={() => document.body} popupStyle={{ zIndex: 1100 }} />
+                      </Form.Item>
+                    </div>
+                  </Col>
+                  <Col span={12}>
+                    <div style={{ background: '#fff', borderRadius: 10, padding: '10px 12px', border: '1px solid rgba(99,102,241,0.18)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                        <PlusOutlined style={{ color: '#6366f1', fontSize: 12 }} />
+                        <span style={{ fontWeight: 700, fontSize: 12, color: '#6366f1' }}>Add Next Stop</span>
+                        <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 'auto' }}>
+                          Current: <strong style={{ color: '#10b981' }}>{editTrip?.destination?.split(',')[0]}</strong>
+                        </span>
+                      </div>
+                      <Form.Item name="nextStop" style={{ marginBottom: 0 }}>
+                        <Input prefix={<EnvironmentOutlined style={{ color: '#6366f1', fontSize: 12 }} />}
+                          placeholder="Enter next stop or waypoint…" style={{ borderRadius: 8 }} />
+                      </Form.Item>
+                    </div>
+                  </Col>
+                </Row>
+
+                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <InfoCircleOutlined style={{ color: '#94a3b8', fontSize: 11 }} />
+                  <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                    Save changes, then use <strong style={{ color: '#10b981' }}>Mark Complete</strong> from the table to close the trip.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* ══ Assignment + Trip Data in ONE compact block ═══════ */}
+            <div style={{
+              background: '#fff', borderRadius: 12, border: '1px solid rgba(99,102,241,0.1)',
+              padding: '14px 16px', marginBottom: 12,
+              boxShadow: '0 2px 10px rgba(99,102,241,0.04)',
+            }}>
+              {/* Vehicle & Driver */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+                <div style={{ width: 3, height: 14, borderRadius: 2, background: 'linear-gradient(#06b6d4,#6366f1)' }} />
+                <CarOutlined style={{ color: '#06b6d4', fontSize: 13 }} />
+                <span style={{ fontWeight: 800, fontSize: 11, color: '#06b6d4', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Vehicle &amp; Driver</span>
+              </div>
+              <Row gutter={12} style={{ marginBottom: 14 }}>
+                <Col span={12}>
+                  <Form.Item name="vehicleReg" label={<span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Vehicle</span>}
+                    rules={[{ required: true }]} style={{ marginBottom: 0 }}>
+                    <Select showSearch options={vehicleOptions} filterOption={filterOption} placeholder="Select vehicle…" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="driverName" label={<span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Driver</span>}
+                    rules={[{ required: true }]} style={{ marginBottom: 0 }}>
+                    <Select showSearch options={driverNameOptions} filterOption={filterOption} placeholder="Select driver…" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: 'rgba(99,102,241,0.08)', margin: '0 -16px 14px', padding: '0 16px' }} />
+
+              {/* Trip Data */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+                <div style={{ width: 3, height: 14, borderRadius: 2, background: 'linear-gradient(#6366f1,#8b5cf6)' }} />
+                <ThunderboltOutlined style={{ color: '#6366f1', fontSize: 13 }} />
+                <span style={{ fontWeight: 800, fontSize: 11, color: '#6366f1', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Trip Data</span>
+              </div>
+              <Row gutter={12} style={{ marginBottom: 10 }}>
+                <Col span={5}>
+                  <Form.Item name="distance" label={<span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Distance (km)</span>} style={{ marginBottom: 0 }}>
+                    <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+                  </Form.Item>
+                </Col>
+                <Col span={5}>
+                  <Form.Item name="fuelUsed" label={<span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Fuel Used (L)</span>} style={{ marginBottom: 0 }}>
+                    <InputNumber style={{ width: '100%' }} min={0} step={0.5} placeholder="0.0" />
+                  </Form.Item>
+                </Col>
+                <Col span={7}>
+                  <Form.Item name="startTime" label={<span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Start Time</span>} style={{ marginBottom: 0 }}>
+                    <DatePicker showTime={{ format: 'HH:mm' }} format="DD MMM YY HH:mm"
+                      placeholder="Start…" style={{ width: '100%' }}
+                      getPopupContainer={() => document.body} popupStyle={{ zIndex: 1100 }} />
+                  </Form.Item>
+                </Col>
+                <Col span={7}>
+                  <Form.Item name="approvedBy" label={<span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Approved By</span>} style={{ marginBottom: 0 }}>
+                    <Input placeholder="Name…" style={{ borderRadius: 8 }} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Form.Item name="purpose" label={<span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Purpose / Notes</span>} style={{ marginBottom: 0 }}>
+                <Input.TextArea rows={2} placeholder="Trip purpose, special instructions, or updates…" style={{ resize: 'none', borderRadius: 8 }} />
+              </Form.Item>
+            </div>
+
+          </Form>
+        </div>
+
+        {/* ── Footer ─────────────────────────────────────────────── */}
+        <div style={{
+          padding: '10px 20px',
+          borderTop: '1px solid rgba(99,102,241,0.1)',
+          background: 'rgba(248,251,255,0.98)',
+          display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center',
+        }}>
+          <div style={{ flex: 1, fontSize: 12, color: '#94a3b8' }}>
+            {editTrip?.status === 'in_progress' && (
+              <span style={{ color: '#06b6d4', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="live-dot" />
+                Trip in progress — changes saved immediately
+              </span>
+            )}
+          </div>
+          <Button onClick={() => setEditOpen(false)} style={{ borderRadius: 9, height: 36, minWidth: 80, fontSize: 13, fontWeight: 600 }}>
+            Cancel
+          </Button>
+          <Button
+            type="primary" icon={<SendOutlined />} loading={isSaving}
+            onClick={() => {
+              editForm.validateFields().then((v) => {
+                // Handle nextStop — append to purpose if provided
+                const vals = { ...v };
+                if (vals.nextStop) {
+                  vals.purpose = (vals.purpose ? vals.purpose + '\n\n' : '') + '📍 Next Stop: ' + vals.nextStop;
+                  vals.destination = vals.nextStop;
+                  delete vals.nextStop;
+                }
+                // Format datetime fields
+                if (vals.endTime)   vals.endTime   = dayjs(vals.endTime).format('YYYY-MM-DDTHH:mm:ss');
+                if (vals.startTime) vals.startTime = dayjs(vals.startTime).format('YYYY-MM-DDTHH:mm:ss');
+                saveTrip(editTrip?.id, vals);
+              });
+            }}
+            style={{
+              borderRadius: 9, height: 36, minWidth: 140, fontWeight: 700, fontSize: 13,
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              border: 'none', boxShadow: '0 4px 12px rgba(99,102,241,0.4)',
+            }}
+          >
+            Save Changes
+          </Button>
+        </div>
+      </Modal>
 
       {/* ── View trip detail drawer ─────────────────────────────── */}
       <Drawer

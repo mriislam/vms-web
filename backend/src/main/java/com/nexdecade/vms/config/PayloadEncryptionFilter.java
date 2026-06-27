@@ -45,7 +45,7 @@ public class PayloadEncryptionFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         if (!enc.isEnabled()) return true;
         String uri = request.getRequestURI();
-        if (uri.contains("/api/auth/")) return true;
+        if (uri.contains("/api/auth/") || uri.equals("/api/health")) return true;
         String ct = request.getContentType();
         return ct != null && ct.startsWith("multipart/");
     }

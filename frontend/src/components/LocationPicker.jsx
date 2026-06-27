@@ -1,61 +1,49 @@
-import { useEffect, useRef, useState } from 'react';
-import { Input, Spin, Typography } from 'antd';
 import { EnvironmentOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Input } from 'antd';
+import { useEffect, useRef, useState } from 'react';
 
-const { Text } = Typography;
-
-// Load Google Maps JS API once per page lifetime
+// Load Google Maps JS API once (singleton promise)
 let _mapsPromise = null;
 function loadGoogleMaps(apiKey) {
   if (window.google?.maps?.places) return Promise.resolve();
   if (_mapsPromise) return _mapsPromise;
   _mapsPromise = new Promise((resolve, reject) => {
-    const cbName = `__gm_init_${Date.now()}`;
-    window[cbName] = () => { delete window[cbName]; resolve(); };
+    const cb = `__gm_${Date.now()}`;
+    window[cb] = () => { delete window[cb]; resolve(); };
     const s = document.createElement('script');
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=${cbName}`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=${cb}`;
     s.async = true;
-    s.onerror = () => { _mapsPromise = null; reject(new Error('Google Maps failed to load')); };
+    s.onerror = () => { _mapsPromise = null; reject(); };
     document.head.appendChild(s);
   });
   return _mapsPromise;
 }
 
 /**
- * LocationPicker — wraps Google Maps Places Autocomplete in an Ant Design Input.
- *
- * Props:
- *   value    : { address, lat, lng } | null
- *   onChange : (value) => void  — called with { address, lat, lng } or null
- *   placeholder, disabled, size
+ * Google Places Autocomplete wrapped in an Ant Design Input.
+ * Props: value { address, lat, lng } | null, onChange(loc | null)
  */
 export default function LocationPicker({ value, onChange, placeholder, disabled, size }) {
-  const antRef  = useRef(null);   // Ant Design Input ref
-  const acRef   = useRef(null);   // Autocomplete instance
+  const inputRef = useRef(null);
+  const acRef    = useRef(null);
   const [loading, setLoading] = useState(false);
-  const [text, setText]       = useState(value?.address ?? '');
+  const [text,    setText]    = useState(value?.address ?? '');
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 
-  // Keep display text in sync when value is set externally (e.g. edit mode)
-  useEffect(() => {
-    setText(value?.address ?? '');
-  }, [value?.address]);
+  useEffect(() => { setText(value?.address ?? ''); }, [value?.address]);
 
   useEffect(() => {
     if (!apiKey || disabled) return;
     setLoading(true);
-
     loadGoogleMaps(apiKey)
       .then(() => {
         setLoading(false);
-        const nativeInput = antRef.current?.input;
-        if (!nativeInput || acRef.current) return;
-
-        acRef.current = new window.google.maps.places.Autocomplete(nativeInput, {
+        const native = inputRef.current?.input;
+        if (!native || acRef.current) return;
+        acRef.current = new window.google.maps.places.Autocomplete(native, {
           fields: ['formatted_address', 'geometry', 'name'],
         });
-
         acRef.current.addListener('place_changed', () => {
           const place = acRef.current.getPlace();
           if (!place?.geometry?.location) return;
@@ -78,34 +66,30 @@ export default function LocationPicker({ value, onChange, placeholder, disabled,
     };
   }, [apiKey, disabled]);
 
-  const coords = value?.lat != null
-    ? `${value.lat.toFixed(4)}, ${value.lng.toFixed(4)}`
-    : null;
+  const confirmed = !!value?.lat;
 
   return (
-    <div>
-      <Input
-        ref={antRef}
-        size={size}
-        value={text}
-        disabled={disabled}
-        placeholder={placeholder ?? 'Search location on map…'}
-        prefix={
-          loading
-            ? <LoadingOutlined style={{ color: '#1677ff' }} />
-            : <EnvironmentOutlined style={{ color: value?.lat ? '#52c41a' : '#1677ff' }} />
-        }
-        onChange={(e) => {
-          setText(e.target.value);
-          if (!e.target.value) onChange?.(null);
-        }}
-        style={{ borderColor: value?.lat ? '#52c41a' : undefined }}
-      />
-      {coords && (
-        <Text type="secondary" style={{ fontSize: 11, marginTop: 2, display: 'block' }}>
-          📍 {coords}
-        </Text>
-      )}
-    </div>
+    <Input
+      ref={inputRef}
+      size={size}
+      value={text}
+      disabled={disabled}
+      placeholder={placeholder ?? 'Search location…'}
+      prefix={
+        loading
+          ? <LoadingOutlined style={{ color: '#6366f1' }} />
+          : <EnvironmentOutlined style={{ color: confirmed ? '#10b981' : '#6366f1', transition: 'color 0.2s' }} />
+      }
+      allowClear
+      onChange={(e) => {
+        setText(e.target.value);
+        if (!e.target.value) onChange?.(null);
+      }}
+      style={{
+        borderRadius: 10,
+        borderColor: confirmed ? '#10b981' : undefined,
+        boxShadow: confirmed ? '0 0 0 2px rgba(16,185,129,0.12)' : undefined,
+      }}
+    />
   );
 }

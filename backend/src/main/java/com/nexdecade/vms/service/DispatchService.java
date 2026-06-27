@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.Year;
 import java.util.List;
 import java.util.Map;
 
@@ -26,8 +27,15 @@ public class DispatchService {
 
     public Dispatch save(Dispatch d) {
         if (d.getDispatchNo() == null || d.getDispatchNo().isBlank()) {
-            long count = repo.count() + 1;
-            d.setDispatchNo("DSP-" + String.format("%03d", count));
+            // Generate a year-prefixed, collision-safe dispatch number
+            String year = String.valueOf(Year.now().getValue());
+            String prefix = "DSP-" + year + "-";
+            long seq = 1;
+            String candidate;
+            do {
+                candidate = prefix + String.format("%04d", seq++);
+            } while (repo.existsByDispatchNo(candidate));
+            d.setDispatchNo(candidate);
         }
         if (d.getStatus() == null) d.setStatus("pending");
         return repo.save(d);

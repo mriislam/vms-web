@@ -8,4 +8,5 @@ public interface DispatchRepository extends JpaRepository<Dispatch, Long> {
     List<Dispatch> findByStatus(String status);
     List<Dispatch> findByVehicleReg(String vehicleReg);
     List<Dispatch> findByDriverName(String driverName);
+    boolean existsByDispatchNo(String dispatchNo);
 }

@@ -1,186 +1,195 @@
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
 html, body, #root {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  font-family: 'Roboto', 'Noto Sans Bengali', 'Segoe UI', sans-serif;
+  font-family: 'Inter', 'Roboto', 'Noto Sans Bengali', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: 0.01em;
 }
 
-/* ── scrollbar ── */
-::-webkit-scrollbar            { width: 6px; height: 6px; }
+/* ── Vibrant purple-tinted scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar            { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track      { background: transparent; }
-::-webkit-scrollbar-thumb      { background: rgba(128,128,128,0.25); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover{ background: rgba(128,128,128,0.45); }
+::-webkit-scrollbar-thumb      { background: rgba(99,102,241,0.3); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover{ background: rgba(99,102,241,0.55); }
 
-/* ── ant card title ── */
+/* ── Gradient text utility ───────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Glassmorphism card ──────────────────────────────────────────────────── */
+.glass-card {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ── Ant card head ───────────────────────────────────────────────────────── */
 .ant-card-head {
-  font-weight: 600 !important;
+  font-weight: 700 !important;
   font-size: 13px !important;
-  letter-spacing: 0.02em;
-}
-
-/* ── table header text ── */
-.ant-table-thead > tr > th {
-  font-weight: 600 !important;
-  font-size: 12px !important;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-/* ── table row ── */
-.ant-table-tbody > tr > td {
-  font-size: 13px;
-}
-
-/* ── fixed column must be opaque so scrolled content doesn't show through ── */
-.ant-table-cell-fix-left,
-.ant-table-cell-fix-right {
-  background: #fff !important;
-}
-.ant-table-thead > tr > .ant-table-cell-fix-left,
-.ant-table-thead > tr > .ant-table-cell-fix-right {
-  background: #fafafa !important;
-}
-.ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
-.ant-table-tbody > tr:hover > .ant-table-cell-fix-right {
-  background: #fafafa !important;
-}
-/* dark mode */
-[data-theme="dark"] .ant-table-cell-fix-left,
-[data-theme="dark"] .ant-table-cell-fix-right {
-  background: #141414 !important;
-}
-[data-theme="dark"] .ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
-[data-theme="dark"] .ant-table-tbody > tr:hover > .ant-table-cell-fix-right {
-  background: #1d1d1d !important;
-}
-
-/* ── sidebar menu group label ── */
-.ant-menu-item-group-title {
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.1em !important;
-  text-transform: uppercase;
-  opacity: 0.45;
-  padding: 12px 16px 4px !important;
-}
-
-/* ── button text ── */
-.ant-btn {
-  font-weight: 500;
   letter-spacing: 0.01em;
+  border-bottom-color: rgba(99,102,241,0.1) !important;
 }
 
-/* ── statistic value ── */
-.ant-statistic-content-value {
+/* ── Table header ────────────────────────────────────────────────────────── */
+.ant-table-thead > tr > th {
   font-weight: 700 !important;
-  font-family: 'Roboto', sans-serif !important;
-}
-
-/* ── statistic title ── */
-.ant-statistic-title {
-  font-weight: 500 !important;
   font-size: 11px !important;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
-/* ── page title spacing ── */
+.ant-table-tbody > tr > td { font-size: 13px; }
+
+/* ── Fixed column opaque bg ──────────────────────────────────────────────── */
+.ant-table-cell-fix-left,
+.ant-table-cell-fix-right { background: #fff !important; }
+.ant-table-thead > tr > .ant-table-cell-fix-left,
+.ant-table-thead > tr > .ant-table-cell-fix-right { background: rgba(99,102,241,0.04) !important; }
+.ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
+.ant-table-tbody > tr:hover > .ant-table-cell-fix-right { background: rgba(99,102,241,0.04) !important; }
+
+[data-theme="dark"] .ant-table-cell-fix-left,
+[data-theme="dark"] .ant-table-cell-fix-right { background: #0d1628 !important; }
+[data-theme="dark"] .ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
+[data-theme="dark"] .ant-table-tbody > tr:hover > .ant-table-cell-fix-right { background: #0d1a2d !important; }
+
+/* ── Sidebar menu group label ────────────────────────────────────────────── */
+.ant-menu-item-group-title {
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase;
+  opacity: 0.35;
+  padding: 14px 16px 4px !important;
+}
+
+/* ── Sidebar menu ────────────────────────────────────────────────────────── */
+.vms-sidebar .ant-menu-submenu-arrow { display: none !important; }
+.vms-sidebar .ant-menu-item,
+.vms-sidebar .ant-menu-submenu-title {
+  border-radius: 10px !important;
+  margin: 1px 8px !important;
+  width: calc(100% - 16px) !important;
+  transition: all 0.2s !important;
+}
+.vms-sidebar .ant-menu-item-selected {
+  font-weight: 600 !important;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.ant-btn { font-weight: 600; letter-spacing: 0.01em; }
+.ant-btn-primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(99,102,241,0.4) !important;
+}
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+  box-shadow: 0 6px 20px rgba(99,102,241,0.5) !important;
+  transform: translateY(-1px);
+}
+
+/* ── Statistic ───────────────────────────────────────────────────────────── */
+.ant-statistic-content-value { font-weight: 800 !important; }
+.ant-statistic-title {
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* ── Typography headings ─────────────────────────────────────────────────── */
 h1.ant-typography, h2.ant-typography, h3.ant-typography,
 h4.ant-typography, h5.ant-typography {
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
-/* ── tag ── */
-.ant-tag {
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
+/* ── Tags ────────────────────────────────────────────────────────────────── */
+.ant-tag { font-weight: 600; letter-spacing: 0.02em; }
 
-/* ── modal title ── */
-.ant-modal-title {
-  font-weight: 700 !important;
-  font-size: 15px !important;
-}
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+.ant-modal-title { font-weight: 800 !important; font-size: 15px !important; }
 
-/* ── form label ── */
+/* ── Form labels ─────────────────────────────────────────────────────────── */
 .ant-form-item-label > label {
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   font-size: 12px !important;
   letter-spacing: 0.03em;
 }
 
-/* ── select & input placeholder ── */
-input::placeholder, textarea::placeholder {
-  font-family: 'Roboto', 'Noto Sans Bengali', sans-serif;
-  opacity: 0.5;
-}
-
-/* ── unicode / bangla text in inputs and display ── */
+/* ── Input / Select placeholder ──────────────────────────────────────────── */
+input::placeholder, textarea::placeholder { font-family: inherit; opacity: 0.45; }
 input, textarea, .ant-input, .ant-input-textarea textarea {
-  font-family: 'Roboto', 'Noto Sans Bengali', 'Segoe UI', sans-serif !important;
+  font-family: 'Inter', 'Roboto', 'Noto Sans Bengali', sans-serif !important;
 }
 
-/* ── popover ── */
-.ant-popover-inner {
-  border-radius: 10px !important;
+/* ── Popover / Dropdown ──────────────────────────────────────────────────── */
+.ant-popover-inner { border-radius: 12px !important; }
+.ant-dropdown-menu { border-radius: 12px !important; padding: 4px !important; }
+.ant-dropdown-menu-item { border-radius: 8px !important; font-size: 13px; }
+
+/* ── Header glass effect ─────────────────────────────────────────────────── */
+.vms-header {
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
 }
 
-/* ── dropdown ── */
-.ant-dropdown-menu {
-  border-radius: 10px !important;
-  padding: 4px !important;
+/* ── Gradient stat card shine animation ──────────────────────────────────── */
+@keyframes cardShine {
+  0%   { transform: translate(30%, -30%) scale(1); opacity: 0.08; }
+  50%  { transform: translate(25%, -35%) scale(1.1); opacity: 0.12; }
+  100% { transform: translate(30%, -30%) scale(1); opacity: 0.08; }
 }
-.ant-dropdown-menu-item {
-  border-radius: 6px !important;
-  font-size: 13px;
+.stat-card-shine { animation: cardShine 4s ease-in-out infinite; }
+
+/* ── Pulsing glow for live indicator ─────────────────────────────────────── */
+@keyframes livePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+  50%       { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
 }
-
-/* ── Responsive: compact cards and reduced spacing on small screens ── */
-@media (max-width: 767px) {
-  /* Ant Card */
-  .ant-card-body    { padding: 10px 12px !important; }
-  .ant-card-head    { padding: 0 12px !important; min-height: 38px !important; line-height: 38px !important; }
-
-  /* Tables */
-  .ant-table-thead > tr > th,
-  .ant-table-tbody > tr > td { padding: 6px 8px !important; font-size: 12px !important; }
-
-  /* Forms */
-  .ant-form-item { margin-bottom: 10px !important; }
-
-  /* Descriptions */
-  .ant-descriptions-item-label,
-  .ant-descriptions-item-content { font-size: 12px !important; padding: 6px 8px !important; }
-
-  /* Modals */
-  .ant-modal { margin: 8px !important; max-width: calc(100vw - 16px) !important; }
-
-  /* Page content inner gap */
-  .ant-row { margin-left: -6px !important; margin-right: -6px !important; }
-  .ant-col  { padding-left: 6px !important; padding-right: 6px !important; }
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #10b981;
+  animation: livePulse 2s ease-in-out infinite;
+  display: inline-block;
 }
 
-/* ── VTS pulsing ring animation (selected vehicle marker) ── */
+/* ── VTS pulsing ring animation ──────────────────────────────────────────── */
 @keyframes vtsPulse {
   0%   { transform: scale(1);   opacity: .6; }
   70%  { transform: scale(2.4); opacity: 0;  }
   100% { transform: scale(2.4); opacity: 0;  }
 }
 
-/* ── Map layer switcher (dark overlay on Leaflet map) ── */
+/* ── Map layer switcher ──────────────────────────────────────────────────── */
 .map-layer-switcher .ant-segmented-item-label {
   color: rgba(255,255,255,0.85) !important;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
 }
 .map-layer-switcher .ant-segmented-item-selected .ant-segmented-item-label {
   color: #000 !important;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .ant-card-body    { padding: 12px !important; }
+  .ant-card-head    { padding: 0 12px !important; min-height: 40px !important; line-height: 40px !important; }
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td { padding: 6px 8px !important; font-size: 12px !important; }
+  .ant-form-item    { margin-bottom: 10px !important; }
+  .ant-descriptions-item-label,
+  .ant-descriptions-item-content { font-size: 12px !important; padding: 6px 8px !important; }
+  .ant-modal { margin: 8px !important; max-width: calc(100vw - 16px) !important; }
+  .ant-row  { margin-left: -6px !important; margin-right: -6px !important; }
+  .ant-col  { padding-left: 6px !important; padding-right: 6px !important; }
 }

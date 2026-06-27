@@ -8,7 +8,6 @@ import {
   EnvironmentOutlined,
   ExperimentOutlined,
   FileProtectOutlined,
-  FileTextOutlined,
   FundOutlined,
   GlobalOutlined,
   HomeOutlined,
@@ -37,100 +36,99 @@ import { useUIStore } from '../stores/uiStore';
 
 const { Sider } = Layout;
 
-const chip = (icon, color, active = false) => (
+const SIDEBAR_W           = 240;
+const SIDEBAR_COLLAPSED_W = 64;
+
+// Chip adapts to isDark for light/dark mode compatibility
+const chip = (icon, color, active, isDark) => (
   <span style={{
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    width: 24, height: 24, borderRadius: 7, flexShrink: 0,
-    background: active ? color + '33' : color + '18',
-    color: active ? color : color + 'cc',
+    width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+    background: active
+      ? (isDark ? `linear-gradient(135deg,${color}35,${color}18)` : `${color}18`)
+      : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
+    color: active ? color : (isDark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.38)'),
     fontSize: 13, lineHeight: 1,
-    transition: 'all 0.2s',
+    transition: 'all 0.25s ease',
+    boxShadow: active ? `0 0 14px ${color}45` : 'none',
+    border: active
+      ? `1px solid ${color}35`
+      : `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'}`,
   }}>
     {icon}
   </span>
 );
 
 const MENU_GROUPS = [
+  { key: '/dashboard', color: '#6366f1', label: 'Dashboard', icon: <DashboardOutlined /> },
   {
-    key: '/dashboard', color: '#1677ff', label: 'Dashboard',
-    icon: <DashboardOutlined />,
-  },
-  {
-    key: 'fleet', color: '#52c41a', label: 'Fleet Management',
-    icon: <CarOutlined />,
+    key: 'fleet', color: '#10b981', label: 'Fleet Management', icon: <CarOutlined />,
     children: [
-      { key: '/vehicles', icon: <CarOutlined />,    color: '#52c41a', label: 'Vehicles' },
-      { key: '/drivers',  icon: <IdcardOutlined />, color: '#13c2c2', label: 'Drivers' },
+      { key: '/vehicles', icon: <CarOutlined />,    color: '#10b981', label: 'Vehicles' },
+      { key: '/drivers',  icon: <IdcardOutlined />, color: '#06b6d4', label: 'Drivers' },
     ],
   },
   {
-    key: 'booking', color: '#0958d9', label: 'Vehicle Booking',
-    icon: <ScheduleOutlined />,
+    key: 'booking', color: '#6366f1', label: 'Vehicle Booking', icon: <ScheduleOutlined />,
     children: [
-      { key: '/booking/single',      icon: <UserOutlined />,          color: '#0958d9', label: 'Single Booking' },
-      { key: '/booking/multiple',    icon: <AppstoreOutlined />,      color: '#531dab', label: 'Multiple Booking' },
-      { key: '/booking/manage-trip', icon: <ThunderboltOutlined />,   color: '#08979c', label: 'Manage Trip' },
-      { key: '/booking/log',         icon: <UnorderedListOutlined />, color: '#d4380d', label: 'Vehicle Booking Log' },
-      { key: '/booking/approval',    icon: <SafetyOutlined />,        color: '#cf1322', label: 'Approval Authority' },
-      { key: '/booking/tpt',         icon: <ControlOutlined />,       color: '#096dd9', label: 'TPT Control Requisition' },
-      { key: '/routes',              icon: <GlobalOutlined />,        color: '#722ed1', label: 'Routes' },
-      { key: '/vts-map',             icon: <EnvironmentOutlined />,   color: '#eb2f96', label: 'VTS Map' },
-      { key: '/accidents',           icon: <AlertOutlined />,         color: '#ff4d4f', label: 'Accident/Occurrence' },
+      { key: '/booking/single',      icon: <UserOutlined />,          color: '#6366f1', label: 'Single Booking' },
+      { key: '/booking/multiple',    icon: <AppstoreOutlined />,      color: '#8b5cf6', label: 'Multiple Booking' },
+      { key: '/booking/manage-trip', icon: <ThunderboltOutlined />,   color: '#06b6d4', label: 'Manage Trip' },
+      { key: '/booking/log',         icon: <UnorderedListOutlined />, color: '#f97316', label: 'Booking Log' },
+      { key: '/booking/approval',    icon: <SafetyOutlined />,        color: '#f43f5e', label: 'Approval Authority' },
+      { key: '/booking/tpt',         icon: <ControlOutlined />,       color: '#06b6d4', label: 'TPT Control Requisition' },
+      { key: '/routes',              icon: <GlobalOutlined />,        color: '#8b5cf6', label: 'Routes' },
+      { key: '/vts-map',             icon: <EnvironmentOutlined />,   color: '#ec4899', label: 'VTS Map' },
+      { key: '/accidents',           icon: <AlertOutlined />,         color: '#f43f5e', label: 'Accident / Occurrence' },
     ],
   },
   {
-    key: 'operations', color: '#fa541c', label: 'Operations',
-    icon: <ToolOutlined />,
+    key: 'operations', color: '#f97316', label: 'Operations', icon: <ToolOutlined />,
     children: [
-      { key: '/fuel',           icon: <ExperimentOutlined />, color: '#ff4d4f', label: 'Fuel' },
-      { key: '/maintenance',    icon: <ToolOutlined />,       color: '#fa541c', label: 'Maintenance' },
-      { key: '/pm-maintenance',       icon: <SyncOutlined />,          color: '#d46b08', label: 'PM Maintenance' },
-      { key: '/maintenance-approval', icon: <FileProtectOutlined />,   color: '#7cb305', label: 'Maintenance Approver' },
-      { key: '/inventory',    icon: <LaptopOutlined />,     color: '#a0d911', label: 'Inventory' },
-      { key: '/parking',      icon: <HomeOutlined />,       color: '#1890ff', label: 'Parking' },
+      { key: '/fuel',                 icon: <ExperimentOutlined />,  color: '#f43f5e', label: 'Fuel' },
+      { key: '/maintenance',          icon: <ToolOutlined />,        color: '#f97316', label: 'Maintenance' },
+      { key: '/pm-maintenance',       icon: <SyncOutlined />,        color: '#f59e0b', label: 'PM Maintenance' },
+      { key: '/maintenance-approval', icon: <FileProtectOutlined />, color: '#10b981', label: 'Maintenance Approver' },
+      { key: '/inventory',            icon: <LaptopOutlined />,      color: '#06b6d4', label: 'Inventory' },
+      { key: '/parking',              icon: <HomeOutlined />,        color: '#6366f1', label: 'Parking' },
     ],
   },
   {
-    key: 'finance', color: '#13c2c2', label: 'Finance',
-    icon: <WalletOutlined />,
+    key: 'finance', color: '#06b6d4', label: 'Finance', icon: <WalletOutlined />,
     children: [
-      { key: '/expenses', icon: <WalletOutlined />, color: '#13c2c2', label: 'Expenses' },
-      { key: '/vendors',  icon: <ShopOutlined />,   color: '#722ed1', label: 'Suppliers' },
+      { key: '/expenses', icon: <WalletOutlined />, color: '#06b6d4', label: 'Expenses' },
+      { key: '/vendors',  icon: <ShopOutlined />,   color: '#8b5cf6', label: 'Suppliers' },
     ],
   },
   {
-    key: 'people', color: '#9254de', label: 'People',
-    icon: <TeamOutlined />,
+    key: 'people', color: '#ec4899', label: 'People', icon: <TeamOutlined />,
     children: [
-      { key: '/employees',     icon: <TeamOutlined />,         color: '#9254de', label: 'Employees' },
-      { key: '/driver-leave',  icon: <UserOutlined />,         color: '#eb2f96', label: 'Driver Leave' },
-      { key: '/coordinators',  icon: <TeamOutlined />,         color: '#52c41a', label: 'Coordinators' },
-      { key: '/notices',       icon: <NotificationOutlined />, color: '#faad14', label: 'Notices' },
-      { key: '/driver/trips',  icon: <CarOutlined />,          color: '#13c2c2', label: 'Driver Portal' },
+      { key: '/employees',    icon: <TeamOutlined />,         color: '#8b5cf6', label: 'Employees' },
+      { key: '/driver-leave', icon: <UserOutlined />,         color: '#ec4899', label: 'Driver Leave' },
+      { key: '/coordinators', icon: <TeamOutlined />,         color: '#10b981', label: 'Coordinators' },
+      { key: '/notices',      icon: <NotificationOutlined />, color: '#f59e0b', label: 'Notices' },
+      { key: '/driver/trips', icon: <CarOutlined />,          color: '#06b6d4', label: 'Driver Portal' },
     ],
   },
   {
-    key: 'analytics', color: '#eb2f96', label: 'Analytics',
-    icon: <PieChartOutlined />,
+    key: 'analytics', color: '#ec4899', label: 'Analytics', icon: <PieChartOutlined />,
     children: [
-      { key: '/reports',  icon: <FundOutlined />,     color: '#1677ff', label: 'Reports' },
-      { key: '/insights', icon: <PieChartOutlined />, color: '#eb2f96', label: 'Insights' },
+      { key: '/reports',  icon: <FundOutlined />,     color: '#6366f1', label: 'Reports' },
+      { key: '/insights', icon: <PieChartOutlined />, color: '#ec4899', label: 'Insights' },
     ],
   },
   {
-    key: 'system', color: '#ff4d4f', label: 'System',
-    icon: <SettingOutlined />,
+    key: 'system', color: '#f43f5e', label: 'System', icon: <SettingOutlined />,
     children: [
-      { key: '/audit-log', icon: <AuditOutlined />, color: '#722ed1', label: 'Audit Log' },
+      { key: '/audit-log', icon: <AuditOutlined />, color: '#8b5cf6', label: 'Audit Log' },
     ],
   },
   {
-    key: 'settings', color: '#8c8c8c', label: 'Settings',
-    icon: <SettingOutlined />,
+    key: 'settings', color: '#94a3b8', label: 'Settings', icon: <SettingOutlined />,
     children: [
-      { key: '/user-admin',       icon: <TeamOutlined />,    color: '#ff4d4f', label: 'User Admin' },
-      { key: '/role-permissions', icon: <SafetyOutlined />,  color: '#fa8c16', label: 'Role Permissions' },
-      { key: '/settings',         icon: <SettingOutlined />, color: '#8c8c8c', label: 'Application Settings' },
+      { key: '/user-admin',       icon: <TeamOutlined />,    color: '#f43f5e', label: 'User Admin' },
+      { key: '/role-permissions', icon: <SafetyOutlined />,  color: '#f97316', label: 'Role Permissions' },
+      { key: '/settings',         icon: <SettingOutlined />, color: '#94a3b8', label: 'App Settings' },
     ],
   },
 ];
@@ -142,31 +140,60 @@ function getGroupKey(pathname) {
   return null;
 }
 
-function buildMenuItems(groups, activeKey, collapsed) {
+function buildMenuItems(groups, activeKey, collapsed, isDark) {
+  const groupLabelColor = isDark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.38)';
+  const activeGroupLabelColor = isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.78)';
+  const itemColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)';
+
   return groups.map((g) => {
-    const isActive = g.children ? g.children.some((c) => c.key === activeKey) : g.key === activeKey;
+    const isGroupActive = g.children
+      ? g.children.some((c) => c.key === activeKey)
+      : g.key === activeKey;
+
     const item = {
       key: g.key,
-      icon: chip(g.icon, g.color, isActive),
+      icon: chip(g.icon, g.color, isGroupActive, isDark),
       label: collapsed ? null : (
-        <span style={{ fontWeight: 600, fontSize: 12, letterSpacing: '0.03em', textTransform: 'uppercase', opacity: 0.85 }}>
+        <span style={{
+          fontWeight: 700, fontSize: 11, letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: isGroupActive ? activeGroupLabelColor : groupLabelColor,
+          transition: 'color 0.2s',
+        }}>
           {g.label}
         </span>
       ),
     };
+
     if (g.children) {
-      item.children = g.children.map((c) => ({
-        key: c.key,
-        icon: chip(c.icon, c.color, c.key === activeKey),
-        label: c.label,
-      }));
+      item.children = g.children.map((c) => {
+        const isActive = c.key === activeKey;
+        return {
+          key: c.key,
+          icon: chip(c.icon, c.color, isActive, isDark),
+          label: (
+            <span style={{
+              fontSize: 13,
+              fontWeight: isActive ? 600 : 400,
+              color: isActive ? c.color : itemColor,
+              transition: 'color 0.2s',
+            }}>
+              {c.label}
+            </span>
+          ),
+          style: isActive ? {
+            background: isDark
+              ? `linear-gradient(90deg,${c.color}12 0%,transparent 100%)`
+              : `linear-gradient(90deg,${c.color}10 0%,transparent 100%)`,
+            borderLeft: `2px solid ${c.color}`,
+            paddingLeft: 10,
+          } : {},
+        };
+      });
     }
     return item;
   });
 }
-
-const SIDEBAR_W = 220;
-const SIDEBAR_COLLAPSED_W = 60;
 
 export default function AppSidebar({ isMobile = false }) {
   const navigate = useNavigate();
@@ -174,23 +201,30 @@ export default function AppSidebar({ isMobile = false }) {
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
   const isDark = useUIStore((s) => s.isDark);
-  // On mobile, sidebar is always icon-only
   const effectiveCollapsed = collapsed || isMobile;
 
   const currentGroup = getGroupKey(location.pathname);
   const [openKeys, setOpenKeys] = useState(currentGroup ? [currentGroup] : []);
 
-  const siderBg   = isDark ? '#0b0f1a' : '#ffffff';
-  const borderClr = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
-  const textClr   = isDark ? '#e6edf3' : '#1a1f2e';
-  const subClr    = isDark ? '#8b949e' : '#6b7280';
+  // Theme-aware colors
+  const siderBg    = isDark
+    ? 'linear-gradient(165deg,#060a1a 0%,#0c1138 45%,#07091e 100%)'
+    : 'linear-gradient(165deg,#ffffff 0%,#f8faff 100%)';
+  const borderClr  = isDark ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.1)';
+  const logoBgText = isDark
+    ? 'linear-gradient(135deg,#a5b4fc,#67e8f9)'
+    : 'linear-gradient(135deg,#6366f1,#06b6d4)';
+  const subTextClr = isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.35)';
+  const collapseButtonBg  = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
+  const collapseButtonClr = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.4)';
+  const siderBoxShadow    = isDark ? '4px 0 24px rgba(0,0,0,0.4)' : '4px 0 16px rgba(99,102,241,0.08)';
 
   function onOpenChange(keys) {
     const latest = keys.find((k) => !openKeys.includes(k));
     setOpenKeys(latest ? [latest] : []);
   }
 
-  const menuItems = buildMenuItems(MENU_GROUPS, location.pathname, effectiveCollapsed);
+  const menuItems = buildMenuItems(MENU_GROUPS, location.pathname, effectiveCollapsed, isDark);
 
   return (
     <Sider
@@ -199,6 +233,7 @@ export default function AppSidebar({ isMobile = false }) {
       collapsed={effectiveCollapsed}
       trigger={null}
       theme={isDark ? 'dark' : 'light'}
+      className="vms-sidebar"
       style={{
         height: '100vh',
         position: 'fixed',
@@ -206,71 +241,83 @@ export default function AppSidebar({ isMobile = false }) {
         zIndex: 100,
         background: siderBg,
         borderRight: `1px solid ${borderClr}`,
-        transition: 'background 0.3s, width 0.2s',
+        transition: 'width 0.22s cubic-bezier(0.4,0,0.2,1)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        boxShadow: siderBoxShadow,
       }}
     >
-      {/* ── Top: Logo + Collapse Button ── */}
+      {/* ── Logo + Collapse ─────────────────────────────────────────────── */}
       <div style={{
-        height: 48,
+        height: 56,
         display: 'flex',
         alignItems: 'center',
         justifyContent: effectiveCollapsed ? 'center' : 'space-between',
-        padding: effectiveCollapsed ? '0 8px' : '0 12px 0 14px',
+        padding: effectiveCollapsed ? '0 8px' : '0 14px 0 16px',
         borderBottom: `1px solid ${borderClr}`,
         flexShrink: 0,
-        gap: 6,
+        gap: 8,
+        background: isDark ? 'rgba(99,102,241,0.04)' : 'rgba(99,102,241,0.03)',
       }}>
-        {/* Logo mark */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden', flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flex: 1, minWidth: 0 }}>
           <div style={{
-            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-            background: 'linear-gradient(135deg, #1677ff 0%, #722ed1 100%)',
+            width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+            background: 'linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#06b6d4 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 3px 10px rgba(22,119,255,0.4)',
+            boxShadow: '0 4px 16px rgba(99,102,241,0.45)',
           }}>
-            <CarOutlined style={{ fontSize: 15, color: '#fff' }} />
+            <CarOutlined style={{ fontSize: 16, color: '#fff' }} />
           </div>
           {!effectiveCollapsed && (
             <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: textClr, lineHeight: 1.2, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>VMS</div>
-              <div style={{ fontSize: 9, color: subClr, lineHeight: 1, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Fleet Manager</div>
+              <div style={{
+                fontSize: 14, fontWeight: 900, lineHeight: 1.2,
+                letterSpacing: '-0.03em', whiteSpace: 'nowrap',
+                background: logoBgText,
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              }}>
+                VMS
+              </div>
+              <div style={{ fontSize: 9, color: subTextClr, letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                Fleet Manager
+              </div>
             </div>
           )}
         </div>
 
-        {/* Collapse toggle */}
-        <Tooltip title={collapsed ? 'Expand' : 'Collapse'} placement="right">
-          <div onClick={() => setSidebarCollapsed(!collapsed)}
-            style={{
-              width: 24, height: 24, borderRadius: 7, flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-              background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-              color: subClr, fontSize: 11,
-              transition: 'all 0.2s',
-              border: `1px solid ${borderClr}`,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = isDark ? 'rgba(22,119,255,0.2)' : 'rgba(22,119,255,0.1)';
-              e.currentTarget.style.color = '#1677ff';
-              e.currentTarget.style.borderColor = '#1677ff44';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
-              e.currentTarget.style.color = subClr;
-              e.currentTarget.style.borderColor = borderClr;
-            }}
-          >
-            {collapsed ? <RightOutlined style={{ fontSize: 10 }} /> : <LeftOutlined style={{ fontSize: 10 }} />}
-          </div>
-        </Tooltip>
+        {!isMobile && (
+          <Tooltip title={collapsed ? 'Expand' : 'Collapse'} placement="right">
+            <div
+              onClick={() => setSidebarCollapsed(!collapsed)}
+              style={{
+                width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+                background: collapseButtonBg,
+                color: collapseButtonClr, fontSize: 10,
+                transition: 'all 0.2s',
+                border: `1px solid ${borderClr}`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(99,102,241,0.2)';
+                e.currentTarget.style.color = '#6366f1';
+                e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = collapseButtonBg;
+                e.currentTarget.style.color = collapseButtonClr;
+                e.currentTarget.style.borderColor = borderClr;
+              }}
+            >
+              {collapsed ? <RightOutlined style={{ fontSize: 10 }} /> : <LeftOutlined style={{ fontSize: 10 }} />}
+            </div>
+          </Tooltip>
+        )}
       </div>
 
-      {/* ── Navigation Menu ── */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingTop: 6, paddingBottom: 12 }}>
+      {/* ── Navigation ───────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingTop: 8, paddingBottom: 16 }}>
         <Menu
           mode="inline"
           theme={isDark ? 'dark' : 'light'}
@@ -282,24 +329,23 @@ export default function AppSidebar({ isMobile = false }) {
             const group = MENU_GROUPS.find((g) => g.key === key);
             if (!group || !group.children) navigate(key);
           }}
-          style={{
-            background: 'transparent',
-            borderRight: 0,
-            fontSize: 13,
-          }}
-          inlineIndent={16}
+          style={{ background: 'transparent', borderRight: 0, fontSize: 13 }}
+          inlineIndent={12}
         />
       </div>
 
-      {/* ── Bottom copyright ── */}
+      {/* ── Footer ─────────────────────────────────────────────────────── */}
       {!effectiveCollapsed && (
         <div style={{
           padding: '10px 18px',
           borderTop: `1px solid ${borderClr}`,
           flexShrink: 0,
           textAlign: 'center',
+          background: isDark ? 'rgba(99,102,241,0.03)' : 'rgba(99,102,241,0.02)',
         }}>
-          <span style={{ fontSize: 10, color: subClr }}>© Nexdecade</span>
+          <span style={{ fontSize: 10, color: subTextClr, letterSpacing: '0.05em' }}>
+            © Nexdecade Technology
+          </span>
         </div>
       )}
     </Sider>

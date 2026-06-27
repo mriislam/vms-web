@@ -289,305 +289,316 @@ export default function SingleBooking() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════
-          BOOKING MODAL — full-width, two-panel Uber-style
+          BOOKING MODAL — wider form, Google Maps, beautiful inputs
       ══════════════════════════════════════════════════════════ */}
       <Modal
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         footer={null}
-        width="96vw"
-        style={{ top: '2vh', maxWidth: 1480, padding: 0 }}
+        width="min(1440px, 97vw)"
+        style={{ top: '1vh', padding: 0 }}
         centered={false}
         destroyOnClose
         closeIcon={null}
         styles={{
-          content: { padding: 0, borderRadius: 20 },
-          mask:    { backdropFilter: 'blur(4px)' },
+          content: { padding: 0, borderRadius: 22, overflow: 'hidden' },
+          mask:    { backdropFilter: 'blur(8px)' },
         }}
       >
-        {/* ── Modal header — gradient style matching FormModal ── */}
+        {/* ── Gradient header ──────────────────────────────────── */}
         <div style={{
-          background: 'linear-gradient(135deg, #1677ffee 0%, #1677ff99 100%)',
-          padding: '14px 18px 12px',
+          background: 'linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#0891b2 100%)',
+          padding: '14px 24px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          borderRadius: '20px 20px 0 0',
           position: 'relative', overflow: 'hidden',
         }}>
-          <div style={{ position: 'absolute', right: -24, top: -24, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', right: 18, bottom: -32, width: 70, height: 70, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, zIndex: 1 }}>
+          <div style={{ position: 'absolute', right: -30, top: -30, width: 130, height: 130, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '45%', bottom: -40, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, zIndex: 1 }}>
             <div style={{
-              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(255,255,255,0.2)',
-              backdropFilter: 'blur(4px)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 17, color: '#fff',
-              boxShadow: '0 4px 10px rgba(0,0,0,0.12)',
+              width: 42, height: 42, borderRadius: 12, background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.35)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#fff',
             }}>
               <UserOutlined />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', lineHeight: 1.3 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
                 {editRecord ? `Edit Booking — ${editRecord.reqNo}` : 'New Single Booking'}
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 1 }}>
-                Enter trip details on the left — live route appears on the map
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 1 }}>
+                Fill in trip details on the left · live route shown on Google Maps
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, zIndex: 1 }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, zIndex: 1 }}>
             {routeInfo && (
-              <span style={{
-                background: 'rgba(255,255,255,0.2)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: 20, padding: '4px 14px', fontSize: 13, fontWeight: 700, color: '#fff',
-                display: 'flex', alignItems: 'center', gap: 6,
-                backdropFilter: 'blur(4px)',
+              <div style={{
+                background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: 24, padding: '6px 18px', fontSize: 14, fontWeight: 800, color: '#fff',
+                display: 'flex', alignItems: 'center', gap: 8, backdropFilter: 'blur(4px)',
               }}>
-                <EnvironmentOutlined />
+                <EnvironmentOutlined style={{ fontSize: 14 }} />
                 {routeInfo.distanceText}
-              </span>
+                {routeInfo.duration && <span style={{ fontWeight: 500, fontSize: 12, opacity: 0.85 }}>· {routeInfo.duration}</span>}
+              </div>
             )}
             <Button
-              type="text" icon={<CloseOutlined />} onClick={() => setModalOpen(false)}
-              style={{ color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8 }}
+              type="text" icon={<CloseOutlined style={{ fontSize: 14 }} />} onClick={() => setModalOpen(false)}
+              style={{ color: '#fff', background: 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)', borderRadius: 10,
+                width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             />
           </div>
         </div>
 
-        {/* ── Body: two panels ────────────────────────────────── */}
-        <div style={{ display: 'flex', height: '84vh' }}>
+        {/* ── Body: wider form + narrower map ───────────────────── */}
+        <div style={{ display: 'flex', height: '88vh' }}>
 
-          {/* LEFT: Form ─────────────────────────────────────────*/}
+          {/* ══ LEFT FORM PANEL — 620px ════════════════════════════ */}
           <div style={{
-            width: 500, flexShrink: 0,
-            display: 'flex', flexDirection: 'column',
-            borderRight: '1px solid rgba(0,0,0,0.07)',
-            background: '#fff',
-            borderRadius: '0 0 0 20px',
+            width: 620, flexShrink: 0, display: 'flex', flexDirection: 'column',
+            borderRight: '1px solid rgba(99,102,241,0.1)',
+            background: 'linear-gradient(180deg,#fafbff 0%,#ffffff 100%)',
           }}>
-            {/* Scrollable form body */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px 8px' }}>
               <Form form={form} layout="vertical" size="middle">
 
-                {/* ══ REQUESTER ══════════════════════════════════ */}
-                <SLabel title="Who is Travelling?" color="#0958d9" icon={<UserOutlined />} />
-                <Row gutter={14}>
-                  <Col span={15}>
-                    <Form.Item name="requestedBy" label="Employee / Requester" rules={[{ required: true }]}>
-                      <Select
-                        showSearch placeholder="Search employee…"
-                        options={employeeOptions} filterOption={filterOption} allowClear
-                        notFoundContent={<span style={{ fontSize: 12, color: '#aaa' }}>No employees found</span>}
-                        onChange={(val, opt) => {
-                          if (opt?.department) form.setFieldValue('department', opt.department);
-                        }}
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col span={9}>
-                    <Form.Item name="department" label="Department" rules={[{ required: true }]}>
-                      <Select placeholder="Select…" options={DEPTS.map((d) => ({ value: d, label: d }))} />
-                    </Form.Item>
-                  </Col>
-                </Row>
-                <Row gutter={14}>
-                  <Col span={15}>
-                    <Form.Item name="purpose" label="Purpose of Trip" rules={[{ required: true }]}>
-                      <Input placeholder="e.g. Site visit, Client meeting…" />
-                    </Form.Item>
-                  </Col>
-                  <Col span={9}>
-                    <Form.Item name="priority" label="Priority" rules={[{ required: true }]} initialValue="normal">
-                      <Select options={[
-                        { value: 'normal', label: '🟢 Normal' },
-                        { value: 'high',   label: '🟠 High'   },
-                        { value: 'urgent', label: '🔴 Urgent' },
-                      ]} />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                {/* ══ ROUTE — Uber style ═════════════════════════ */}
-                <SLabel title="Where To?" color="#1677ff" icon={<EnvironmentOutlined />} />
-
-                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  {/* Vertical connector */}
-                  <div style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    paddingTop: 34, flexShrink: 0,
-                  }}>
-                    <div style={{
-                      width: 14, height: 14, borderRadius: '50%',
-                      background: '#1677ff', border: '3px solid #e6f4ff',
-                      boxShadow: '0 0 0 2px #1677ff40',
-                    }} />
-                    <div style={{
-                      width: 2, flex: 1, minHeight: 120, borderRadius: 2, margin: '4px 0',
-                      background: 'linear-gradient(#1677ff, #52c41a)',
-                    }} />
-                    <div style={{
-                      width: 14, height: 14, borderRadius: 3,
-                      background: '#52c41a', border: '3px solid #f6ffed',
-                      boxShadow: '0 0 0 2px #52c41a40',
-                    }} />
+                {/* ══ SECTION 1: WHO ════════════════════════════════ */}
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <div style={{ width: 4, height: 18, borderRadius: 3, background: 'linear-gradient(#6366f1,#8b5cf6)' }} />
+                    <UserOutlined style={{ color: '#6366f1', fontSize: 14 }} />
+                    <span style={{ fontWeight: 800, fontSize: 13, color: '#6366f1', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                      Who is Travelling?
+                    </span>
                   </div>
 
-                  <div style={{ flex: 1 }}>
-                    {/* From */}
-                    <Form.Item
-                      name="fromLocation"
-                      label={<span style={{ fontWeight: 600, color: '#1677ff' }}>From</span>}
-                      rules={[{ required: true }]} style={{ marginBottom: 0 }}
-                    >
-                      <LocationPicker
-                        value={fromLoc} onChange={(loc) => handleLocationChange('from', loc)}
-                        placeholder="Enter pickup location…" size="large"
-                      />
-                    </Form.Item>
+                  {/* Row 1: Employee + Dept + Priority in one line */}
+                  <Row gutter={14}>
+                    <Col span={11}>
+                      <Form.Item name="requestedBy" label={<span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Employee / Requester</span>}
+                        rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 14 }}>
+                        <Select
+                          showSearch placeholder="Search employee or name…"
+                          options={employeeOptions} filterOption={filterOption} allowClear
+                          style={{ fontSize: 14 }}
+                          notFoundContent={<span style={{ fontSize: 13, color: '#9ca3af' }}>No employees found</span>}
+                          onChange={(_, opt) => { if (opt?.department) form.setFieldValue('department', opt.department); }}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={7}>
+                      <Form.Item name="department" label={<span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Department</span>}
+                        rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 14 }}>
+                        <Select placeholder="Select dept…" options={DEPTS.map((d) => ({ value: d, label: d }))} style={{ fontSize: 14 }} />
+                      </Form.Item>
+                    </Col>
+                    <Col span={6}>
+                      <Form.Item name="priority" label={<span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Priority</span>}
+                        initialValue="normal" style={{ marginBottom: 14 }}>
+                        <Select style={{ fontSize: 14 }} options={[
+                          { value: 'normal', label: '🟢 Normal' },
+                          { value: 'high',   label: '🟠 High'   },
+                          { value: 'urgent', label: '🔴 Urgent' },
+                        ]} />
+                      </Form.Item>
+                    </Col>
+                  </Row>
 
-                    {/* Distance — read-only, no drive time */}
-                    <div style={{ padding: '6px 0', minHeight: 30, display: 'flex', alignItems: 'center' }}>
-                      {calcingDist ? (
-                        <span style={{ fontSize: 12, color: '#888', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Spin size="small" /> Calculating distance…
-                        </span>
-                      ) : distKm ? (
-                        <div style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 7,
-                          background: '#fff', border: '1.5px solid #1677ff',
-                          borderRadius: 20, padding: '3px 12px',
-                        }}>
-                          <ThunderboltOutlined style={{ color: '#1677ff', fontSize: 12 }} />
-                          <span style={{ fontWeight: 700, fontSize: 13, color: '#1677ff' }}>{distKm} km</span>
-                          <Tooltip title="Auto-calculated via Google Maps">
-                            <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 11 }} />
-                          </Tooltip>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: 11, color: '#bbb' }}>Distance fills when both locations are set</span>
-                      )}
+                  {/* Row 2: Purpose (full width) */}
+                  <Form.Item name="purpose" label={<span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Purpose of Trip</span>}
+                    rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 0 }}>
+                    <Input placeholder="e.g. Site visit, Client meeting, Logistics run…" style={{ fontSize: 14, height: 40 }} />
+                  </Form.Item>
+                </div>
+
+                {/* ══ SECTION 2: WHERE ══════════════════════════════ */}
+                <div style={{ margin: '18px 0 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <div style={{ width: 4, height: 18, borderRadius: 3, background: 'linear-gradient(#06b6d4,#0891b2)' }} />
+                    <EnvironmentOutlined style={{ color: '#06b6d4', fontSize: 14 }} />
+                    <span style={{ fontWeight: 800, fontSize: 13, color: '#06b6d4', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                      Where To?
+                    </span>
+                    {distKm && (
+                      <span style={{
+                        marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5,
+                        background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.22)',
+                        borderRadius: 20, padding: '3px 12px', fontSize: 13, fontWeight: 800, color: '#6366f1',
+                      }}>
+                        <ThunderboltOutlined style={{ fontSize: 11 }} />
+                        {distKm} km
+                        <CheckCircleOutlined style={{ color: '#10b981', fontSize: 11 }} />
+                      </span>
+                    )}
+                    {calcingDist && <Spin size="small" style={{ marginLeft: 'auto' }} />}
+                  </div>
+
+                  {/* From → connector → To layout */}
+                  <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                    {/* Animated route connector */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 38, flexShrink: 0, width: 20 }}>
+                      <div style={{
+                        width: 14, height: 14, borderRadius: '50%', background: '#6366f1',
+                        border: '3px solid #eef1ff', boxShadow: '0 0 0 3px rgba(99,102,241,0.2)',
+                      }} />
+                      <div style={{ width: 2.5, minHeight: 44, borderRadius: 2, margin: '5px 0', background: 'linear-gradient(180deg,#6366f1 0%,#10b981 100%)' }} />
+                      <div style={{
+                        width: 14, height: 14, borderRadius: 4, background: '#10b981',
+                        border: '3px solid #f0fdf4', boxShadow: '0 0 0 3px rgba(16,185,129,0.2)',
+                      }} />
                     </div>
 
-                    {/* Destination */}
-                    <Form.Item
-                      name="toLocation"
-                      label={<span style={{ fontWeight: 600, color: '#52c41a' }}>Destination</span>}
-                      rules={[{ required: true }]} style={{ marginBottom: 10 }}
-                    >
-                      <LocationPicker
-                        value={toLoc} onChange={(loc) => handleLocationChange('to', loc)}
-                        placeholder="Enter drop-off destination…" size="large"
-                      />
-                    </Form.Item>
+                    <div style={{ flex: 1 }}>
+                      {/* FROM */}
+                      <Form.Item
+                        name="fromLocation"
+                        label={<span style={{ fontSize: 13, fontWeight: 700, color: '#6366f1' }}>Pickup Location (From)</span>}
+                        rules={[{ required: true, message: 'Pickup location required' }]}
+                        style={{ marginBottom: 12 }}
+                      >
+                        <LocationPicker value={fromLoc} onChange={(loc) => handleLocationChange('from', loc)}
+                          placeholder="Search pickup address, landmark, area…" size="large" />
+                      </Form.Item>
 
-                    {/* Passengers — directly below destination */}
-                    <Form.Item name="passengers" label="No. of Passengers" style={{ marginBottom: 0 }}>
-                      <InputNumber style={{ width: 180 }} min={1} max={50} placeholder="How many passengers?" />
-                    </Form.Item>
+                      {/* TO */}
+                      <Form.Item
+                        name="toLocation"
+                        label={<span style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>Drop-off Destination (To)</span>}
+                        rules={[{ required: true, message: 'Destination required' }]}
+                        style={{ marginBottom: 0 }}
+                      >
+                        <LocationPicker value={toLoc} onChange={(loc) => handleLocationChange('to', loc)}
+                          placeholder="Search destination address, landmark, area…" size="large" />
+                      </Form.Item>
+                    </div>
                   </div>
                 </div>
 
-                {/* ══ SCHEDULE ═══════════════════════════════════ */}
-                <SLabel title="When?" color="#722ed1" icon={<ClockCircleOutlined />} />
-                <Row gutter={14}>
-                  <Col span={12}>
-                    <Form.Item name="fromDatetime" label="Depart" rules={[{ required: true }]}>
-                      <DatePicker
-                        showTime={{ format: 'HH:mm' }} format="DD MMM YYYY HH:mm"
-                        placeholder="Departure date & time" style={{ width: '100%' }}
-                        getPopupContainer={popupToBody} popupStyle={{ zIndex: 1100 }}
-                        disabledDate={(d) => d && d.isBefore(dayjs().startOf('day'))}
-                        onChange={() => {
-                          const ret = form.getFieldValue('toDatetime');
-                          if (ret && form.getFieldValue('fromDatetime') && ret.isBefore(form.getFieldValue('fromDatetime'))) {
-                            form.setFieldValue('toDatetime', null);
-                          }
-                        }}
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="toDatetime" label="Return">
-                      <DatePicker
-                        showTime={{ format: 'HH:mm' }} format="DD MMM YYYY HH:mm"
-                        placeholder="Return date & time" style={{ width: '100%' }}
-                        getPopupContainer={popupToBody} popupStyle={{ zIndex: 1100 }}
-                        disabledDate={(d) => {
-                          if (!d) return false;
-                          const depart = watchDepart;
-                          if (depart) return d.isBefore(depart.startOf('day'));
-                          return d.isBefore(dayjs().startOf('day'));
-                        }}
-                      />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                {/* Auto-stamped request date — hidden field + read-only badge */}
-                <Form.Item name="date" hidden><Input /></Form.Item>
-                <Form.Item label="Request Date">
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    background: '#f0f7ff', border: '1px solid #91caff',
-                    borderRadius: 8, padding: '7px 12px',
-                  }}>
-                    <ClockCircleOutlined style={{ color: '#1677ff', fontSize: 13 }} />
-                    <span style={{ fontWeight: 600, color: '#0958d9', fontSize: 13 }}>
-                      {dayjs().format('DD MMM YYYY')}
-                    </span>
-                    <span style={{ fontSize: 11, color: '#888', marginLeft: 4 }}>
-                      Auto-stamped · not editable
+                {/* ══ SECTION 3: WHEN ═══════════════════════════════ */}
+                <div style={{ margin: '18px 0 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <div style={{ width: 4, height: 18, borderRadius: 3, background: 'linear-gradient(#8b5cf6,#ec4899)' }} />
+                    <ClockCircleOutlined style={{ color: '#8b5cf6', fontSize: 14 }} />
+                    <span style={{ fontWeight: 800, fontSize: 13, color: '#8b5cf6', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                      When &amp; How Many?
                     </span>
                   </div>
-                </Form.Item>
 
-                {/* ══ NOTES ══════════════════════════════════════ */}
-                <SLabel title="Notes" color="#eb2f96" />
-                <Form.Item name="remarks" style={{ marginBottom: 6 }}>
-                  <Input.TextArea rows={2} placeholder="Special instructions for the trip…" />
-                </Form.Item>
+                  <Row gutter={14}>
+                    <Col span={10}>
+                      <Form.Item name="fromDatetime" label={<span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Departure Date &amp; Time</span>}
+                        rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 14 }}>
+                        <DatePicker showTime={{ format: 'HH:mm' }} format="DD MMM YYYY HH:mm"
+                          placeholder="Select departure…" style={{ width: '100%', height: 40, fontSize: 14 }}
+                          getPopupContainer={popupToBody} popupStyle={{ zIndex: 1100 }}
+                          disabledDate={(d) => d && d.isBefore(dayjs().startOf('day'))}
+                          onChange={() => {
+                            const ret = form.getFieldValue('toDatetime');
+                            if (ret && form.getFieldValue('fromDatetime') && ret.isBefore(form.getFieldValue('fromDatetime')))
+                              form.setFieldValue('toDatetime', null);
+                          }}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={10}>
+                      <Form.Item name="toDatetime" label={<span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Return Date &amp; Time</span>}
+                        style={{ marginBottom: 14 }}>
+                        <DatePicker showTime={{ format: 'HH:mm' }} format="DD MMM YYYY HH:mm"
+                          placeholder="Select return (optional)…" style={{ width: '100%', height: 40, fontSize: 14 }}
+                          getPopupContainer={popupToBody} popupStyle={{ zIndex: 1100 }}
+                          disabledDate={(d) => {
+                            if (!d) return false;
+                            const dep = watchDepart;
+                            return dep ? d.isBefore(dep.startOf('day')) : d.isBefore(dayjs().startOf('day'));
+                          }}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={4}>
+                      <Form.Item name="passengers" label={<span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Passengers</span>}
+                        style={{ marginBottom: 14 }}>
+                        <InputNumber style={{ width: '100%', height: 40, fontSize: 14 }} min={1} max={50} placeholder="1" />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+
+                  {/* Request date info strip */}
+                  <Form.Item name="date" hidden><Input /></Form.Item>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10, marginBottom: 0,
+                    background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.14)',
+                    borderRadius: 10, padding: '8px 14px',
+                  }}>
+                    <ClockCircleOutlined style={{ color: '#6366f1', fontSize: 14 }} />
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#6366f1' }}>{dayjs().format('dddd, DD MMMM YYYY')}</span>
+                    <span style={{ fontSize: 12, color: '#94a3b8' }}>· Request date (auto-stamped)</span>
+                  </div>
+                </div>
+
+                {/* ══ SECTION 4: NOTES ══════════════════════════════ */}
+                <div style={{ margin: '18px 0 8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <div style={{ width: 4, height: 18, borderRadius: 3, background: 'linear-gradient(#ec4899,#f43f5e)' }} />
+                    <span style={{ fontWeight: 800, fontSize: 13, color: '#ec4899', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                      Additional Notes
+                    </span>
+                  </div>
+                  <Form.Item name="remarks" style={{ marginBottom: 0 }}>
+                    <Input.TextArea rows={2}
+                      placeholder="Special pickup instructions, access codes, contact at destination, any other notes…"
+                      style={{ resize: 'none', fontSize: 14, borderRadius: 10 }} />
+                  </Form.Item>
+                </div>
 
               </Form>
             </div>
 
-            {/* Sticky footer */}
+            {/* ── Sticky action footer ───────────────────────────── */}
             <div style={{
               padding: '14px 28px',
-              borderTop: '1px solid rgba(0,0,0,0.08)',
-              background: '#fafafa',
-              display: 'flex', gap: 10, justifyContent: 'flex-end',
-              borderRadius: '0 0 0 20px',
+              borderTop: '1px solid rgba(99,102,241,0.1)',
+              background: 'rgba(250,251,255,0.98)',
+              display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <Button onClick={() => setModalOpen(false)} style={{ borderRadius: 8, minWidth: 90 }}>
-                Cancel
-              </Button>
-              <Button
-                type="primary" icon={<SendOutlined />} loading={isSaving}
-                onClick={handleSubmit}
-                style={{ borderRadius: 8, minWidth: 160, fontWeight: 600 }}
-              >
-                {editRecord ? 'Update Booking' : 'Submit Booking'}
-              </Button>
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>
+                {distKm ? (
+                  <span style={{ color: '#6366f1', fontWeight: 700 }}>
+                    Route: {distKm} km
+                    {routeInfo?.duration && ` · ~${routeInfo.duration}`}
+                  </span>
+                ) : 'Set locations to calculate route'}
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Button onClick={() => setModalOpen(false)} style={{ borderRadius: 10, height: 40, minWidth: 90, fontSize: 14, fontWeight: 600 }}>
+                  Cancel
+                </Button>
+                <Button
+                  type="primary" icon={<SendOutlined />} loading={isSaving}
+                  onClick={handleSubmit}
+                  style={{
+                    borderRadius: 10, height: 40, minWidth: 180, fontWeight: 700, fontSize: 14,
+                    background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                    border: 'none', boxShadow: '0 4px 16px rgba(99,102,241,0.45)',
+                  }}
+                >
+                  {editRecord ? 'Update Booking' : 'Submit Booking'}
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* RIGHT: Map ─────────────────────────────────────────*/}
-          <div style={{
-            flex: 1, padding: 14,
-            background: '#edf2fb',
-            borderRadius: '0 0 20px 0',
-          }}>
+          {/* ══ RIGHT MAP PANEL ═══════════════════════════════════ */}
+          <div style={{ flex: 1, padding: 14, background: '#eef1ff', minWidth: 0 }}>
             <BookingMapPanel
               fromLoc={fromLoc}
               toLoc={toLoc}
               onRouteInfo={(info) => {
                 setRouteInfo(info);
-                if (info?.distance) {
-                  setDistKm(info.distance);
-                  form.setFieldValue('distanceKm', info.distance);
-                }
+                if (info?.distance) { setDistKm(info.distance); form.setFieldValue('distanceKm', info.distance); }
               }}
             />
           </div>

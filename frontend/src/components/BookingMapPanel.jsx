@@ -1,99 +1,115 @@
-import { EnvironmentOutlined, SwapRightOutlined } from '@ant-design/icons';
+import { EnvironmentOutlined, SwapRightOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { Spin, Typography } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 
 const { Text } = Typography;
 
-// Polls until window.google.maps.DirectionsService is available
-function waitForMaps() {
+// Wait until Google Maps DirectionsService is loaded by LocationPicker
+function waitForGoogleMaps() {
   if (window.google?.maps?.DirectionsService) return Promise.resolve();
   return new Promise((resolve) => {
     const t = setInterval(() => {
       if (window.google?.maps?.DirectionsService) { clearInterval(t); resolve(); }
-    }, 150);
+    }, 120);
   });
 }
 
-export default function BookingMapPanel({ fromLoc, toLoc, onRouteInfo, isDark }) {
-  const containerRef  = useRef(null);
-  const mapRef        = useRef(null);
-  const rendererRef   = useRef(null);
-  const markerARef    = useRef(null);
-  const markerBRef    = useRef(null);
+// Custom SVG pin icon
+function mkIcon(color, letter) {
+  return {
+    path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+    fillColor: color,
+    fillOpacity: 1,
+    strokeColor: '#ffffff',
+    strokeWeight: 2.5,
+    scale: 2.2,
+    anchor: new window.google.maps.Point(12, 22),
+    labelOrigin: new window.google.maps.Point(12, 9),
+  };
+}
+
+// Night-mode map style for Google Maps
+const MAP_STYLES_LIGHT = [
+  { featureType: 'poi.business',    stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit',         elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road',            elementType: 'geometry', stylers: [{ color: '#f8f8f8' }] },
+  { featureType: 'road.highway',    elementType: 'geometry', stylers: [{ color: '#e8e8e8' }] },
+  { featureType: 'water',           elementType: 'geometry', stylers: [{ color: '#c8ddf0' }] },
+  { featureType: 'landscape',       elementType: 'geometry', stylers: [{ color: '#f5f5f0' }] },
+];
+
+export default function BookingMapPanel({ fromLoc, toLoc, onRouteInfo }) {
+  const containerRef = useRef(null);
+  const mapRef       = useRef(null);
+  const rendererRef  = useRef(null);
+  const markerA      = useRef(null);
+  const markerB      = useRef(null);
   const [ready,     setReady]     = useState(!!window.google?.maps?.DirectionsService);
   const [routing,   setRouting]   = useState(false);
   const [routeInfo, setRouteInfo] = useState(null);
 
-  // Wait for Maps API (loaded by LocationPicker)
-  useEffect(() => { waitForMaps().then(() => setReady(true)); }, []);
+  // Wait for Google Maps to load
+  useEffect(() => { waitForGoogleMaps().then(() => setReady(true)); }, []);
 
-  // Init map once ready
+  // Init map once
   useEffect(() => {
     if (!ready || !containerRef.current || mapRef.current) return;
     mapRef.current = new window.google.maps.Map(containerRef.current, {
       center: { lat: 23.8103, lng: 90.4125 },
-      zoom: 11,
+      zoom: 12,
       mapTypeControl: false,
       streetViewControl: false,
-      fullscreenControl: false,
+      fullscreenControl: true,
       zoomControl: true,
       zoomControlOptions: { position: window.google.maps.ControlPosition.RIGHT_TOP },
-      styles: [
-        { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-        { featureType: 'transit',      elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-      ],
+      fullscreenControlOptions: { position: window.google.maps.ControlPosition.RIGHT_TOP },
+      styles: MAP_STYLES_LIGHT,
     });
     rendererRef.current = new window.google.maps.DirectionsRenderer({
       suppressMarkers: true,
-      polylineOptions: { strokeColor: '#1677ff', strokeWeight: 5, strokeOpacity: 0.85 },
+      polylineOptions: {
+        strokeColor: '#6366f1',
+        strokeWeight: 5,
+        strokeOpacity: 0.88,
+      },
     });
     rendererRef.current.setMap(mapRef.current);
   }, [ready]);
 
-  // Update route when locations change
+  // Update markers + route when locations change
   useEffect(() => {
     if (!ready || !mapRef.current) return;
 
-    markerARef.current?.setMap(null);
-    markerBRef.current?.setMap(null);
-    markerARef.current = null;
-    markerBRef.current = null;
-
-    const mkIcon = (color, letter) => ({
-      path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
-      fillColor: color,
-      fillOpacity: 1,
-      strokeColor: '#fff',
-      strokeWeight: 2,
-      scale: 1.7,
-      anchor: new window.google.maps.Point(12, 22),
-      labelOrigin: new window.google.maps.Point(12, 9),
-    });
+    markerA.current?.setMap(null); markerA.current = null;
+    markerB.current?.setMap(null); markerB.current = null;
+    setRouteInfo(null);
 
     if (fromLoc?.lat) {
-      markerARef.current = new window.google.maps.Marker({
+      markerA.current = new window.google.maps.Marker({
         position: { lat: fromLoc.lat, lng: fromLoc.lng },
         map: mapRef.current,
         title: fromLoc.address,
-        icon: mkIcon('#1677ff', 'A'),
-        label: { text: 'A', color: '#fff', fontWeight: '700', fontSize: '11px' },
+        icon: mkIcon('#6366f1', 'A'),
+        label: { text: 'A', color: '#fff', fontWeight: '800', fontSize: '12px' },
         zIndex: 10,
       });
     }
 
     if (toLoc?.lat) {
-      markerBRef.current = new window.google.maps.Marker({
+      markerB.current = new window.google.maps.Marker({
         position: { lat: toLoc.lat, lng: toLoc.lng },
         map: mapRef.current,
         title: toLoc.address,
-        icon: mkIcon('#52c41a', 'B'),
-        label: { text: 'B', color: '#fff', fontWeight: '700', fontSize: '11px' },
+        icon: mkIcon('#10b981', 'B'),
+        label: { text: 'B', color: '#fff', fontWeight: '800', fontSize: '12px' },
         zIndex: 10,
       });
     }
 
     if (fromLoc?.lat && toLoc?.lat) {
       setRouting(true);
+      try { rendererRef.current?.setDirections({ routes: [] }); } catch (_) {}
+
       new window.google.maps.DirectionsService().route(
         {
           origin:      { lat: fromLoc.lat, lng: fromLoc.lng },
@@ -110,19 +126,21 @@ export default function BookingMapPanel({ fromLoc, toLoc, onRouteInfo, isDark })
                 distance:     Math.round(leg.distance.value / 1000),
                 distanceText: leg.distance.text,
                 duration:     leg.duration.text,
+                durationSecs: leg.duration.value,
               };
               setRouteInfo(info);
               onRouteInfo?.(info);
             }
+          } else {
+            try { rendererRef.current?.setDirections({ routes: [] }); } catch (_) {}
           }
         }
       );
     } else {
       try { rendererRef.current?.setDirections({ routes: [] }); } catch (_) {}
-      setRouteInfo(null);
       const loc = fromLoc ?? toLoc;
       if (loc?.lat) {
-        mapRef.current.setCenter({ lat: loc.lat, lng: loc.lng });
+        mapRef.current.panTo({ lat: loc.lat, lng: loc.lng });
         mapRef.current.setZoom(14);
       }
     }
@@ -130,40 +148,39 @@ export default function BookingMapPanel({ fromLoc, toLoc, onRouteInfo, isDark })
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      {/* Map container */}
-      <div
-        ref={containerRef}
-        style={{ width: '100%', height: '100%', borderRadius: 14, overflow: 'hidden' }}
-      />
+      {/* Google Map container */}
+      <div ref={containerRef} style={{ width: '100%', height: '100%', borderRadius: 14, overflow: 'hidden' }} />
 
-      {/* Not-ready spinner */}
+      {/* Loading spinner when Google Maps isn't ready yet */}
       {!ready && (
         <div style={{
           position: 'absolute', inset: 0, borderRadius: 14,
-          background: isDark ? '#1a1a2e' : '#f0f5ff',
+          background: '#eef1ff',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12,
         }}>
           <Spin size="large" />
-          <Text type="secondary" style={{ fontSize: 12 }}>Loading map…</Text>
+          <Text type="secondary" style={{ fontSize: 13 }}>Loading Google Maps…</Text>
         </div>
       )}
 
-      {/* Empty state hint */}
+      {/* Empty state */}
       {ready && !fromLoc?.lat && !toLoc?.lat && (
         <div style={{
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none',
         }}>
           <div style={{
-            background: isDark ? 'rgba(30,30,50,0.88)' : 'rgba(255,255,255,0.88)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: 16, padding: '24px 32px', textAlign: 'center',
-            boxShadow: '0 8px 32px rgba(22,119,255,0.15)',
-            border: '1px solid rgba(22,119,255,0.15)',
+            background: 'rgba(255,255,255,0.93)', backdropFilter: 'blur(12px)',
+            borderRadius: 18, padding: '24px 32px', textAlign: 'center',
+            boxShadow: '0 12px 40px rgba(99,102,241,0.18)',
+            border: '1px solid rgba(99,102,241,0.15)',
           }}>
-            <EnvironmentOutlined style={{ fontSize: 40, color: '#1677ff', display: 'block', marginBottom: 10 }} />
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Route will appear here</div>
-            <div style={{ fontSize: 12, color: '#888' }}>Search From & To locations to see<br />the driving route on the map</div>
+            <EnvironmentOutlined style={{ fontSize: 42, color: '#6366f1', display: 'block', marginBottom: 10 }} />
+            <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4, color: '#1e293b' }}>Live Route Preview</div>
+            <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+              Enter pickup & destination<br />to see the driving route
+            </div>
           </div>
         </div>
       )}
@@ -171,57 +188,69 @@ export default function BookingMapPanel({ fromLoc, toLoc, onRouteInfo, isDark })
       {/* Routing spinner */}
       {routing && (
         <div style={{
-          position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(255,255,255,0.92)', borderRadius: 20, padding: '6px 16px',
+          position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(255,255,255,0.95)', borderRadius: 24, padding: '8px 18px',
           display: 'flex', alignItems: 'center', gap: 8,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-          backdropFilter: 'blur(8px)',
+          boxShadow: '0 4px 20px rgba(99,102,241,0.2)', backdropFilter: 'blur(8px)',
+          zIndex: 10,
         }}>
           <Spin size="small" />
-          <Text style={{ fontSize: 12, fontWeight: 600 }}>Calculating route…</Text>
+          <Text style={{ fontSize: 13, fontWeight: 600, color: '#6366f1' }}>Calculating route…</Text>
         </div>
       )}
 
-      {/* Route info card */}
+      {/* Route info card — from → to + distance + time */}
       {routeInfo && !routing && (
         <div style={{
-          position: 'absolute', bottom: 12, left: 12, right: 12,
-          background: isDark ? 'rgba(20,20,40,0.92)' : 'rgba(255,255,255,0.94)',
-          backdropFilter: 'blur(12px)',
-          borderRadius: 14, padding: '12px 16px',
-          boxShadow: '0 6px 24px rgba(0,0,0,0.15)',
-          border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(22,119,255,0.12)',
-          display: 'flex', alignItems: 'stretch', gap: 0,
+          position: 'absolute', bottom: 14, left: 14, right: 14,
+          background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)',
+          borderRadius: 16, padding: '14px 18px',
+          boxShadow: '0 8px 32px rgba(99,102,241,0.2)',
+          border: '1px solid rgba(99,102,241,0.18)',
+          display: 'flex', alignItems: 'center', gap: 0,
+          zIndex: 10,
         }}>
-          {/* From → To summary */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, paddingRight: 16 }}>
-            <div style={{
-              width: 8, height: 8, borderRadius: '50%', background: '#1677ff', flexShrink: 0,
-              boxShadow: '0 0 0 3px rgba(22,119,255,0.2)',
-            }} />
-            <Text style={{ fontSize: 11, flex: 1 }} ellipsis={{ tooltip: fromLoc?.address }}>
-              {fromLoc?.address?.split(',')[0]}
-            </Text>
-            <SwapRightOutlined style={{ color: '#999', fontSize: 12 }} />
-            <Text style={{ fontSize: 11, flex: 1 }} ellipsis={{ tooltip: toLoc?.address }}>
-              {toLoc?.address?.split(',')[0]}
-            </Text>
-            <div style={{
-              width: 8, height: 8, borderRadius: '50%', background: '#52c41a', flexShrink: 0,
-              boxShadow: '0 0 0 3px rgba(82,196,26,0.2)',
-            }} />
+          {/* From → To */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, paddingRight: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 0 3px rgba(99,102,241,0.2)' }} />
+              <div style={{ width: 1.5, height: 14, background: 'linear-gradient(#6366f1,#10b981)' }} />
+              <div style={{ width: 10, height: 10, borderRadius: 3, background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.2)' }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#6366f1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {fromLoc?.address?.split(',')[0]}
+              </div>
+              <div style={{ fontSize: 11, color: '#94a3b8', margin: '1px 0' }}>to</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#10b981', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {toLoc?.address?.split(',')[0]}
+              </div>
+            </div>
           </div>
 
           {/* Divider */}
-          <div style={{ width: 1, background: 'rgba(128,128,128,0.2)', margin: '0 16px' }} />
+          <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(99,102,241,0.12)', margin: '0 18px' }} />
 
-          {/* Distance only */}
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-              <EnvironmentOutlined style={{ color: '#1677ff', fontSize: 14 }} />
-              <span style={{ fontWeight: 800, fontSize: 18, color: '#1677ff' }}>{routeInfo.distanceText}</span>
+          {/* Distance */}
+          <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 80 }}>
+            <div style={{ fontSize: 26, fontWeight: 900, lineHeight: 1, color: '#6366f1', letterSpacing: '-0.02em' }}>
+              {routeInfo.distanceText}
             </div>
-            <div style={{ fontSize: 10, color: '#888', marginTop: 1 }}>Route Distance</div>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Route distance</div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(99,102,241,0.12)', margin: '0 18px' }} />
+
+          {/* Duration */}
+          <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 72 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+              <ClockCircleOutlined style={{ color: '#f59e0b', fontSize: 14 }} />
+              <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.01em' }}>
+                {routeInfo.duration}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Drive time</div>
           </div>
         </div>
       )}
