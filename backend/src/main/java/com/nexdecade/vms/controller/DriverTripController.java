@@ -543,7 +543,7 @@ public class DriverTripController {
     private void ensureDriverOwnsRequisition(Requisition r) {
         Driver driver = resolveDriver(currentUser());
         if (driver == null) return; // admin can access all
-        if (r.getDriverId() != null && !driver.getId().intValue().equals(r.getDriverId()))
+        if (r.getDriverId() != null && driver.getId().intValue() != r.getDriverId())
             throw new IllegalStateException("Not authorized to access this trip");
     }
 
