@@ -185,9 +185,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: AppColors.white, borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0x1F6366F1)),
-          borderLeft: Border(left: BorderSide(
-            color: AppColors.statusColor(d.status), width: 4))),
+          border: Border(
+            left:   BorderSide(color: AppColors.statusColor(d.status), width: 4),
+            top:    const BorderSide(color: Color(0x1F6366F1)),
+            right:  const BorderSide(color: Color(0x1F6366F1)),
+            bottom: const BorderSide(color: Color(0x1F6366F1)),
+          )),
         child: Padding(padding: const EdgeInsets.all(16), child: Column(
           crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -237,13 +240,3 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       ));
 }
 
-// Custom border decoration
-extension _BoxDecEx on BoxDecoration {
-  BoxDecoration copyWithBorderLeft(BorderSide side) => BoxDecoration(
-    color: color, image: image, border: Border(
-      left:   side,
-      top:    (border as Border?)?.top    ?? BorderSide.none,
-      right:  (border as Border?)?.right  ?? BorderSide.none,
-      bottom: (border as Border?)?.bottom ?? BorderSide.none),
-    borderRadius: borderRadius, boxShadow: boxShadow, gradient: gradient);
-}

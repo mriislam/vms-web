@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../core/api.dart';
 import '../../core/constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/widgets.dart';
+import '../location_picker_screen.dart';
 
 class NewRequestScreen extends StatefulWidget {
   const NewRequestScreen({super.key});
@@ -15,6 +17,9 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
   final _formKey   = GlobalKey<FormState>();
   final _fromCtrl  = TextEditingController();
   final _toCtrl    = TextEditingController();
+  // Map-picked location data
+  Map<String, dynamic>? _fromLocation;
+  Map<String, dynamic>? _toLocation;
   final _purposeCtrl = TextEditingController();
   final _remarksCtrl = TextEditingController();
   final _paxCtrl   = TextEditingController(text: '1');
@@ -68,8 +73,12 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
         'department':    _dept ?? '',
         'purpose':       _purposeCtrl.text.trim(),
         'priority':      _priority,
-        'fromLocation':  _fromCtrl.text.trim(),
-        'toLocation':    _toCtrl.text.trim(),
+        'fromLocation':  _fromLocation?['address'] ?? _fromCtrl.text.trim(),
+        'toLocation':    _toLocation?['address']   ?? _toCtrl.text.trim(),
+        'fromLat':       _fromLocation?['lat'],
+        'fromLng':       _fromLocation?['lng'],
+        'toLat':         _toLocation?['lat'],
+        'toLng':         _toLocation?['lng'],
         'passengers':    int.tryParse(_paxCtrl.text) ?? 1,
         'remarks':       _remarksCtrl.text.trim().isEmpty ? null : _remarksCtrl.text.trim(),
         'date':          today,
@@ -178,15 +187,49 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
             ])),
           const SizedBox(width: 12),
           Expanded(child: Column(children: [
-            TextFormField(controller: _fromCtrl,
-              decoration: const InputDecoration(labelText: 'Pickup Location (From) *',
-                hintText: 'Enter pickup address…'),
-              validator: (v) => v?.isEmpty == true ? 'Required' : null),
+            // FROM — taps open Google Maps picker
+            _LocationTile(
+              label: 'Pickup Location (From) *',
+              value: _fromLocation?['address'] ?? _fromCtrl.text,
+              color: const Color(0xFF6366F1),
+              onTap: () async {
+                final result = await Navigator.push<Map<String, dynamic>>(context,
+                  MaterialPageRoute(builder: (_) => LocationPickerScreen(
+                    title: 'Pickup Location',
+                    initialPosition: _fromLocation != null
+                      ? LatLng(_fromLocation!['lat'], _fromLocation!['lng'])
+                      : null,
+                  )));
+                if (result != null) {
+                  setState(() {
+                    _fromLocation = result;
+                    _fromCtrl.text = result['address'] ?? '';
+                  });
+                }
+              },
+            ),
             const SizedBox(height: 12),
-            TextFormField(controller: _toCtrl,
-              decoration: const InputDecoration(labelText: 'Destination (To) *',
-                hintText: 'Enter destination address…'),
-              validator: (v) => v?.isEmpty == true ? 'Required' : null),
+            // TO — taps open Google Maps picker
+            _LocationTile(
+              label: 'Destination (To) *',
+              value: _toLocation?['address'] ?? _toCtrl.text,
+              color: const Color(0xFF10B981),
+              onTap: () async {
+                final result = await Navigator.push<Map<String, dynamic>>(context,
+                  MaterialPageRoute(builder: (_) => LocationPickerScreen(
+                    title: 'Destination',
+                    initialPosition: _toLocation != null
+                      ? LatLng(_toLocation!['lat'], _toLocation!['lng'])
+                      : null,
+                  )));
+                if (result != null) {
+                  setState(() {
+                    _toLocation = result;
+                    _toCtrl.text = result['address'] ?? '';
+                  });
+                }
+              },
+            ),
           ])),
         ]))),
         const SizedBox(height: 4),
@@ -239,6 +282,51 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
             loading: _saving, icon: Icons.send)),
         ]),
         const SizedBox(height: 40),
+      ]),
+    ),
+  );
+}
+
+// ── Tappable location tile that opens map picker ──────────────────────────────
+class _LocationTile extends StatelessWidget {
+  final String   label;
+  final String   value;
+  final Color    color;
+  final VoidCallback onTap;
+
+  const _LocationTile({
+    required this.label, required this.value,
+    required this.color, required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: value.isNotEmpty ? color : const Color(0xFFE2E8F0),
+          width: value.isNotEmpty ? 2 : 1.5),
+        borderRadius: BorderRadius.circular(12),
+        color: value.isNotEmpty ? color.withOpacity(0.04) : const Color(0xFFFAFBFF),
+      ),
+      child: Row(children: [
+        Icon(Icons.location_on, color: value.isNotEmpty ? color : Colors.grey, size: 20),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+          const SizedBox(height: 2),
+          Text(
+            value.isNotEmpty ? value : 'Tap to open map…',
+            style: TextStyle(
+              fontSize: 14,
+              color: value.isNotEmpty ? const Color(0xFF1E293B) : Colors.grey,
+              fontWeight: value.isNotEmpty ? FontWeight.w600 : FontWeight.normal),
+            maxLines: 2, overflow: TextOverflow.ellipsis,
+          ),
+        ])),
+        Icon(Icons.map_outlined, color: color.withOpacity(0.6), size: 20),
       ]),
     ),
   );
