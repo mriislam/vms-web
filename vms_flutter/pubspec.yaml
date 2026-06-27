@@ -1,0 +1,38 @@
+name: vms_flutter
+description: VMS Fleet Manager — Driver, Employee & Approver Mobile App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP & Storage
+  http:               ^1.2.1
+  shared_preferences: ^2.2.3
+
+  # State management
+  provider: ^6.1.2
+
+  # GPS & Maps
+  geolocator:          ^11.0.0
+  google_maps_flutter: ^2.6.1
+
+  # Encryption (AES-256-GCM — matches backend)
+  cryptography: ^2.7.0
+  crypto:       ^3.0.3
+
+  # Utilities
+  intl:              ^0.19.0
+  cupertino_icons:   ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
