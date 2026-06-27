@@ -46,6 +46,14 @@ public class User {
     @Column(length = 500)
     private String fcmToken;
 
+    // ── 2FA (Google Authenticator TOTP) ──────────────────────
+    @Column(length = 64)
+    private String  mfaSecret;
+
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Builder.Default
+    private Boolean mfaEnabled = false;
+
     @CreationTimestamp @Column(updatable = false)
     private LocalDateTime createdAt;
 
