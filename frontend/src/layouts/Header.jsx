@@ -50,6 +50,7 @@ const PAGE_META = {
   '/audit-log':           { title: 'Audit Log',              color: '#8b5cf6' },
   '/settings':            { title: 'App Settings',           color: '#94a3b8' },
   '/developer':           { title: 'Developer — API Docs',   color: '#6366f1' },
+  '/service-centers':     { title: 'Service Centers',         color: '#06b6d4' },
   '/employees':           { title: 'Employees',              color: '#8b5cf6' },
   '/driver/trips':        { title: 'Driver Portal',          color: '#06b6d4' },
   '/booking/single':      { title: 'Single Booking',         color: '#6366f1' },

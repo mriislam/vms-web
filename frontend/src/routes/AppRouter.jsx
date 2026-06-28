@@ -28,6 +28,7 @@ import RolePermissions from '../pages/RolePermissions';
 import Settings from '../pages/Settings';
 import AuditLog from '../pages/AuditLog';
 import Developer from '../pages/Developer';
+import ServiceCenter from '../pages/ServiceCenter';
 import SingleBooking from '../pages/SingleBooking';
 import MultipleBooking from '../pages/MultipleBooking';
 import ManageTrip from '../pages/ManageTrip';
@@ -80,7 +81,8 @@ export default function AppRouter() {
         <Route path="role-permissions" element={<RolePermissions />} />
         <Route path="audit-log" element={<AuditLog />} />
         <Route path="settings" element={<Settings />} />
-        <Route path="developer" element={<Developer />} />
+        <Route path="developer"       element={<Developer />} />
+        <Route path="service-centers" element={<ServiceCenter />} />
         <Route path="booking/single"     element={<SingleBooking />} />
         <Route path="booking/multiple"   element={<MultipleBooking />} />
         <Route path="booking/manage-trip" element={<ManageTrip />} />

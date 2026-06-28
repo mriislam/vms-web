@@ -22,7 +22,7 @@ import {
   ScheduleOutlined,
   SettingOutlined,
   SyncOutlined,
-  ShopOutlined,
+  ShopOutlined, ShopFilled,
   TeamOutlined,
   ThunderboltOutlined,
   ToolOutlined,
@@ -129,6 +129,7 @@ const MENU_GROUPS = [
     children: [
       { key: '/user-admin',       icon: <TeamOutlined />,    color: '#f43f5e', label: 'User Admin' },
       { key: '/role-permissions', icon: <SafetyOutlined />,  color: '#f97316', label: 'Role Permissions' },
+      { key: '/service-centers',  icon: <ShopOutlined />,    color: '#06b6d4', label: 'Service Centers' },
       { key: '/settings',         icon: <SettingOutlined />, color: '#94a3b8', label: 'App Settings' },
       { key: '/developer',        icon: <CodeOutlined />,    color: '#6366f1', label: 'Developer' },
     ],
