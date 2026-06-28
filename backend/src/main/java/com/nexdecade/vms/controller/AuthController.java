@@ -90,17 +90,21 @@ public class AuthController {
         if (mfaToken == null || code == null)
             return ResponseEntity.badRequest().body(ApiResponse.error("mfaToken and code are required"));
 
-        String username = mfaPending.remove(mfaToken);
+        // Peek without removing — only consume token on success so user can retry
+        String username = mfaPending.get(mfaToken);
         if (username == null)
-            return ResponseEntity.status(401).body(ApiResponse.error("Invalid or expired MFA session"));
+            return ResponseEntity.status(400).body(ApiResponse.error("MFA session expired. Please log in again."));
 
         User user = userRepository.findByUsername(username).orElseThrow();
         if (!totpService.verify(user.getMfaSecret(), code)) {
             auditLogService.log(username, user.getRole(), "Auth", "MFA",
                 "Invalid TOTP code", ip, "failed");
-            return ResponseEntity.status(401).body(ApiResponse.error("Invalid authenticator code. Please try again."));
+            // Return 400 (not 401) so the frontend interceptor does NOT redirect to /login
+            return ResponseEntity.status(400).body(ApiResponse.error("Incorrect code. Check the app and try again."));
         }
 
+        // Correct code — consume the token and issue JWT
+        mfaPending.remove(mfaToken);
         return issueToken(user, ip);
     }
 

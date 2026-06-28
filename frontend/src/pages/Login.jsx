@@ -162,7 +162,16 @@ export default function LoginPage() {
         setMfaErr('Verification failed. Please try again.');
       }
     } catch (e) {
-      setMfaErr(e?.response?.data?.message ?? 'Invalid code. Try again.');
+      const msg = e?.response?.data?.message ?? 'Invalid code. Try again.';
+      // Session expired → go back to login step to get a fresh session
+      if (msg.includes('expired') || msg.includes('session')) {
+        setStep('credentials'); setMfaData(null); setOtp('');
+        setMfaErr('');
+      } else {
+        setMfaErr(msg);
+        setOtp(''); // clear so user can re-enter fresh code
+        setTimeout(() => document.querySelector('input[inputmode="numeric"]')?.focus(), 100);
+      }
     } finally { setMfaLoading(false); }
   }
 
