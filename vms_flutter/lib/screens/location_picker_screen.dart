@@ -31,18 +31,24 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     super.initState();
     if (widget.initialPosition != null) {
       _selected = widget.initialPosition!;
+      // Pre-load address only if re-editing an existing location
+      _reverseGeocode(widget.initialPosition!);
     }
     _getCurrentLocation();
   }
 
   Future<void> _getCurrentLocation() async {
     try {
-      final perm = await Geolocator.requestPermission();
+      final perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
       final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      setState(() => _selected = LatLng(pos.latitude, pos.longitude));
-      _mapCtrl?.animateCamera(CameraUpdate.newLatLngZoom(_selected, 15));
-      await _reverseGeocode(_selected);
+      final latLng = LatLng(pos.latitude, pos.longitude);
+      // Only center the map — do NOT auto-set address (user must tap to confirm)
+      if (widget.initialPosition == null) {
+        setState(() => _selected = latLng);
+      }
+      _mapCtrl?.animateCamera(CameraUpdate.newLatLngZoom(
+        widget.initialPosition ?? latLng, 14));
     } catch (_) {}
   }
 

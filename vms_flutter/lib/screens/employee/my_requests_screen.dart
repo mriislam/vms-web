@@ -80,19 +80,13 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
       subtitle: '${_filtered.length} requisitions',
     ),
     body: Column(children: [
-      // Search
-      Container(color: AppColors.white, padding: const EdgeInsets.all(12),
-        child: TextField(
-          controller: _searchCtrl, onChanged: (v) { _search = v.toLowerCase(); _applyFilter(); },
-          decoration: const InputDecoration(
-            hintText: 'Search purpose, location…',
-            prefixIcon: Icon(Icons.search, color: AppColors.primary),
-            isDense: true),
-        )),
-
-      // Status tabs
-      Container(color: AppColors.white, height: 40,
-        child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 8),
+      // Status tabs — CAPS, scrollable
+      Container(
+        color: AppColors.white,
+        height: 44,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           itemCount: _tabs.length,
           itemBuilder: (_, i) {
             final t  = _tabs[i];
@@ -100,15 +94,16 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
             return GestureDetector(
               onTap: () { setState(() => _tab = t); _applyFilter(); },
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                margin: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: on ? AppColors.primaryBg : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20)),
+                  color: on ? AppColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: on ? AppColors.primary : const Color(0xFFE2E8F0))),
                 alignment: Alignment.center,
-                child: Text(t.replaceAll('_', ' '),
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                    color: on ? AppColors.primary : AppColors.textMuted)),
+                child: Text(t.replaceAll('_', ' ').toUpperCase(),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                    color: on ? Colors.white : AppColors.textMuted)),
               ),
             );
           }),

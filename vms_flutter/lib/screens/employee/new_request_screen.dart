@@ -40,24 +40,78 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
 
   Future<void> _pickDate({required bool isDepart}) async {
     final now  = DateTime.now();
-    final init = isDepart ? (_depart ?? now) : (_return_ ?? _depart ?? now);
+    // Depart: must be now or future. Return: must be after depart (or now).
+    final firstDate = isDepart ? now : (_depart ?? now);
+    final init      = isDepart
+      ? (_depart ?? now.add(const Duration(hours: 1)))
+      : (_return_ ?? (_depart?.add(const Duration(hours: 1)) ?? now.add(const Duration(hours: 2))));
+
     final date = await showDatePicker(context: context,
-      initialDate: init, firstDate: now,
-      lastDate: now.add(const Duration(days: 365)));
+      initialDate: init.isBefore(firstDate) ? firstDate : init,
+      firstDate:   firstDate,
+      lastDate:    now.add(const Duration(days: 365)));
     if (date == null || !mounted) return;
+
     final time = await showTimePicker(context: context,
       initialTime: TimeOfDay.fromDateTime(init));
     if (time == null || !mounted) return;
+
     final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    setState(() { isDepart ? _depart = dt : _return_ = dt; });
+
+    // Validation
+    if (isDepart && dt.isBefore(DateTime.now())) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('⚠️ Departure time cannot be in the past'),
+        backgroundColor: Colors.orange));
+      return;
+    }
+    if (!isDepart && _depart != null && !dt.isAfter(_depart!)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('⚠️ Return time must be after departure time'),
+        backgroundColor: Colors.orange));
+      return;
+    }
+
+    setState(() {
+      if (isDepart) {
+        _depart = dt;
+        // Reset return if it's now before new departure
+        if (_return_ != null && !_return_!.isAfter(dt)) _return_ = null;
+      } else {
+        _return_ = dt;
+      }
+    });
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if ((_fromLocation == null) && _fromCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('⚠️ Please select a pickup location on the map'),
+        backgroundColor: Colors.orange)); return;
+    }
+    if ((_toLocation == null) && _toCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('⚠️ Please select a destination on the map'),
+        backgroundColor: Colors.orange)); return;
+    }
     if (_depart == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select departure date & time')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('⚠️ Please select departure date & time'),
+        backgroundColor: Colors.orange));
       return;
+    }
+    if (_depart!.isBefore(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('⚠️ Departure time cannot be in the past'),
+        backgroundColor: Colors.orange)); return;
+    }
+    if (_return_ != null && !_return_!.isAfter(_depart!)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('⚠️ Return time must be after departure time'),
+        backgroundColor: Colors.orange)); return;
     }
     setState(() => _saving = true);
     try {
@@ -172,66 +226,127 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
           ]),
         ]))),
 
-        // ── WHERE ─────────────────────────────────────────────────────────────
+        // ── WHERE — Google Maps style card ────────────────────────────────────
         const SectionLabel('Where To?', color: AppColors.cyan),
-        Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Connector
-          Padding(padding: const EdgeInsets.only(top: 20),
-            child: Column(children: [
-              Container(width: 10, height: 10, decoration: const BoxDecoration(
-                color: AppColors.primary, shape: BoxShape.circle)),
-              Container(width: 2, height: 58, color: const Color(0x336366F1)),
-              Container(width: 10, height: 10, decoration: BoxDecoration(
-                color: AppColors.emerald, borderRadius: BorderRadius.circular(2))),
-            ])),
-          const SizedBox(width: 12),
-          Expanded(child: Column(children: [
-            // FROM — taps open Google Maps picker
-            _LocationTile(
-              label: 'Pickup Location (From) *',
-              value: _fromLocation?['address'] ?? _fromCtrl.text,
-              color: const Color(0xFF6366F1),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08),
+              blurRadius: 8, offset: const Offset(0, 2))],
+          ),
+          child: Column(children: [
+            // ── FROM field ──────────────────────────────────────────────
+            InkWell(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               onTap: () async {
                 final result = await Navigator.push<Map<String, dynamic>>(context,
                   MaterialPageRoute(builder: (_) => LocationPickerScreen(
                     title: 'Pickup Location',
                     initialPosition: _fromLocation != null
-                      ? LatLng(_fromLocation!['lat'], _fromLocation!['lng'])
-                      : null,
+                      ? LatLng(_fromLocation!['lat'], _fromLocation!['lng']) : null,
                   )));
-                if (result != null) {
-                  setState(() {
-                    _fromLocation = result;
-                    _fromCtrl.text = result['address'] ?? '';
-                  });
-                }
+                if (result != null) setState(() {
+                  _fromLocation = result;
+                  _fromCtrl.text = result['address'] ?? '';
+                });
               },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(children: [
+                  // Blue dot
+                  Container(width: 12, height: 12,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF4285F4), shape: BoxShape.circle)),
+                  const SizedBox(width: 14),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('From', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 2),
+                    Text(
+                      (_fromLocation?['address'] ?? _fromCtrl.text).isNotEmpty
+                        ? (_fromLocation?['address'] ?? _fromCtrl.text)
+                        : 'Choose starting point',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: (_fromLocation?['address'] ?? _fromCtrl.text).isNotEmpty
+                          ? Colors.black87 : Colors.grey[400],
+                        fontWeight: (_fromLocation?['address'] ?? _fromCtrl.text).isNotEmpty
+                          ? FontWeight.w500 : FontWeight.normal),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                  ])),
+                  // Clear button
+                  if ((_fromLocation?['address'] ?? _fromCtrl.text).isNotEmpty)
+                    GestureDetector(
+                      onTap: () => setState(() { _fromLocation = null; _fromCtrl.clear(); }),
+                      child: const Icon(Icons.close, size: 18, color: Colors.grey)),
+                ]),
+              ),
             ),
-            const SizedBox(height: 12),
-            // TO — taps open Google Maps picker
-            _LocationTile(
-              label: 'Destination (To) *',
-              value: _toLocation?['address'] ?? _toCtrl.text,
-              color: const Color(0xFF10B981),
+
+            // ── Divider with connector line ─────────────────────────────
+            Row(children: [
+              const SizedBox(width: 22),
+              Container(width: 2, height: 1, color: Colors.transparent),
+              // Vertical dashed line between dots
+              Padding(
+                padding: const EdgeInsets.only(left: 5),
+                child: Container(width: 2, height: 20,
+                  color: const Color(0xFFDDDDDD)),
+              ),
+              const Expanded(child: Divider(height: 1, color: Color(0xFFEEEEEE))),
+            ]),
+
+            // ── TO field ────────────────────────────────────────────────
+            InkWell(
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
               onTap: () async {
                 final result = await Navigator.push<Map<String, dynamic>>(context,
                   MaterialPageRoute(builder: (_) => LocationPickerScreen(
                     title: 'Destination',
                     initialPosition: _toLocation != null
-                      ? LatLng(_toLocation!['lat'], _toLocation!['lng'])
-                      : null,
+                      ? LatLng(_toLocation!['lat'], _toLocation!['lng']) : null,
                   )));
-                if (result != null) {
-                  setState(() {
-                    _toLocation = result;
-                    _toCtrl.text = result['address'] ?? '';
-                  });
-                }
+                if (result != null) setState(() {
+                  _toLocation = result;
+                  _toCtrl.text = result['address'] ?? '';
+                });
               },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(children: [
+                  // Red pin square
+                  Container(width: 12, height: 12,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEA4335),
+                      borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(width: 14),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('To', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 2),
+                    Text(
+                      (_toLocation?['address'] ?? _toCtrl.text).isNotEmpty
+                        ? (_toLocation?['address'] ?? _toCtrl.text)
+                        : 'Choose destination',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: (_toLocation?['address'] ?? _toCtrl.text).isNotEmpty
+                          ? Colors.black87 : Colors.grey[400],
+                        fontWeight: (_toLocation?['address'] ?? _toCtrl.text).isNotEmpty
+                          ? FontWeight.w500 : FontWeight.normal),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                  ])),
+                  // Clear button
+                  if ((_toLocation?['address'] ?? _toCtrl.text).isNotEmpty)
+                    GestureDetector(
+                      onTap: () => setState(() { _toLocation = null; _toCtrl.clear(); }),
+                      child: const Icon(Icons.close, size: 18, color: Colors.grey)),
+                ]),
+              ),
             ),
-          ])),
-        ]))),
+          ]),
+        ),
         const SizedBox(height: 4),
         TextFormField(controller: _paxCtrl, keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'No. of Passengers',
@@ -287,47 +402,3 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
   );
 }
 
-// ── Tappable location tile that opens map picker ──────────────────────────────
-class _LocationTile extends StatelessWidget {
-  final String   label;
-  final String   value;
-  final Color    color;
-  final VoidCallback onTap;
-
-  const _LocationTile({
-    required this.label, required this.value,
-    required this.color, required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: value.isNotEmpty ? color : const Color(0xFFE2E8F0),
-          width: value.isNotEmpty ? 2 : 1.5),
-        borderRadius: BorderRadius.circular(12),
-        color: value.isNotEmpty ? color.withOpacity(0.04) : const Color(0xFFFAFBFF),
-      ),
-      child: Row(children: [
-        Icon(Icons.location_on, color: value.isNotEmpty ? color : Colors.grey, size: 20),
-        const SizedBox(width: 10),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
-          const SizedBox(height: 2),
-          Text(
-            value.isNotEmpty ? value : 'Tap to open map…',
-            style: TextStyle(
-              fontSize: 14,
-              color: value.isNotEmpty ? const Color(0xFF1E293B) : Colors.grey,
-              fontWeight: value.isNotEmpty ? FontWeight.w600 : FontWeight.normal),
-            maxLines: 2, overflow: TextOverflow.ellipsis,
-          ),
-        ])),
-        Icon(Icons.map_outlined, color: color.withOpacity(0.6), size: 20),
-      ]),
-    ),
-  );
-}

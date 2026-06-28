@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
 import 'core/constants.dart';
 import 'providers/auth_provider.dart';
 import 'screens/login_screen.dart';
@@ -8,8 +9,19 @@ import 'screens/employee/my_requests_screen.dart';
 import 'screens/approver/approvals_screen.dart';
 import 'screens/driver/driver_home_screen.dart';
 
+// Request location permission once at app startup
+Future<void> _requestLocationPermission() async {
+  try {
+    final status = await Geolocator.checkPermission();
+    if (status == LocationPermission.denied) {
+      await Geolocator.requestPermission();
+    }
+  } catch (_) {}
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _requestLocationPermission();
   runApp(
     ChangeNotifierProvider(
       create: (_) => AuthProvider()..hydrate(),
@@ -43,7 +55,6 @@ class _Root extends StatelessWidget {
   }
 }
 
-// ── Role-based bottom navigation ─────────────────────────────────────────────
 class _MainShell extends StatefulWidget {
   const _MainShell();
   @override State<_MainShell> createState() => _MainShellState();
@@ -56,11 +67,9 @@ class _MainShellState extends State<_MainShell> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
 
-    // Build tabs based on role
     final List<({Widget screen, BottomNavigationBarItem tab})> tabs;
 
     if (user?.isDriverRole == true) {
-      // Driver
       tabs = [
         (screen: const DriverHomeScreen(),
          tab: const BottomNavigationBarItem(icon: Icon(Icons.directions_car_outlined),
@@ -70,7 +79,6 @@ class _MainShellState extends State<_MainShell> {
            activeIcon: Icon(Icons.person), label: 'Profile')),
       ];
     } else if (user?.isAdmin == true) {
-      // Admin / Manager
       tabs = [
         (screen: const ApprovalsScreen(),
          tab: const BottomNavigationBarItem(icon: Icon(Icons.pending_actions_outlined),
@@ -83,7 +91,6 @@ class _MainShellState extends State<_MainShell> {
            activeIcon: Icon(Icons.person), label: 'Profile')),
       ];
     } else {
-      // Employee
       tabs = [
         (screen: const MyRequestsScreen(),
          tab: const BottomNavigationBarItem(icon: Icon(Icons.article_outlined),
@@ -94,7 +101,6 @@ class _MainShellState extends State<_MainShell> {
       ];
     }
 
-    // Clamp index in case role changed
     if (_idx >= tabs.length) _idx = 0;
 
     return Scaffold(

@@ -145,34 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 24),
 
             // ── Role hints ────────────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: AppColors.white, borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0x1F6366F1))),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('ACCESS BY ROLE', style: TextStyle(fontSize: 11,
-                  fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
-                const SizedBox(height: 12),
-                for (final r in [
-                  ('👤', 'Employee',     'Submit vehicle requests'),
-                  ('🛡️', 'Admin/Manager', 'Approve, assign & manage trips'),
-                  ('🚌', 'Driver',        'View trips, start & end with GPS'),
-                ]) Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(children: [
-                    Text(r.$1, style: const TextStyle(fontSize: 22)),
-                    const SizedBox(width: 12),
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(r.$2, style: const TextStyle(fontWeight: FontWeight.w700,
-                        fontSize: 14, color: AppColors.text)),
-                      Text(r.$3, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                    ]),
-                  ]),
-                ),
-              ]),
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
             const Text('© Nexdecade Technology', style: TextStyle(
               color: AppColors.textMuted, fontSize: 12)),
           ]),
