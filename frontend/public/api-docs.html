@@ -289,6 +289,7 @@ hr{border:none;border-top:1px solid var(--border2);margin:32px 0}
   <div class="nav-section">
     <div class="nav-section-label">System</div>
     <button class="nav-link" onclick="navTo('health', this)">Health Check</button>
+    <button class="nav-link" onclick="navTo('fuel-prices', this)">Fuel Prices <span class="nav-badge badge-POST">NEW</span></button>
     <button class="nav-link" onclick="navTo('routes-sec', this)">Routes</button>
     <button class="nav-link" onclick="navTo('vendors', this)">Vendors</button>
   </div>
@@ -684,6 +685,80 @@ Authorization: Bearer <span class="str">eyJhbGciOiJIUzUxMiJ9...</span></pre>
 <section class="section" id="health">
   <div class="section-title">System</div>
   <div class="endpoint open"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/health</span><span class="endpoint-desc">Public health check — no auth required</span></div><div class="endpoint-body"><pre>{ <span class="key">"status"</span>: <span class="str">"ok"</span>, <span class="key">"service"</span>: <span class="str">"VMS Backend"</span> }</pre></div></div>
+</section>
+
+<section class="section" id="fuel-prices">
+  <div class="section-title">Fuel Price Management</div>
+  <p style="color:var(--muted);margin-bottom:16px">Manage current market fuel prices. Prices are referenced when logging fuel records (auto-fill) and calculating trip costs.</p>
+
+  <div class="endpoint open"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/fuel-prices</span><span class="auth-badge">🔒 JWT</span><span class="endpoint-desc">All current fuel prices</span></div><div class="endpoint-body">
+    <pre>{ <span class="key">"data"</span>: [
+  { <span class="key">"id"</span>:<span class="num">1</span>, <span class="key">"fuelType"</span>:<span class="str">"Diesel"</span>, <span class="key">"pricePerUnit"</span>:<span class="num">114.00</span>, <span class="key">"unit"</span>:<span class="str">"Liter"</span>, <span class="key">"effectiveDate"</span>:<span class="str">"2026-06-28"</span>, <span class="key">"updatedBy"</span>:<span class="str">"admin"</span> },
+  { <span class="key">"id"</span>:<span class="num">2</span>, <span class="key">"fuelType"</span>:<span class="str">"Petrol"</span>, <span class="key">"pricePerUnit"</span>:<span class="num">125.00</span>, <span class="key">"unit"</span>:<span class="str">"Liter"</span>, <span class="key">"effectiveDate"</span>:<span class="str">"2026-06-28"</span>, <span class="key">"updatedBy"</span>:<span class="str">"admin"</span> },
+  { <span class="key">"id"</span>:<span class="num">3</span>, <span class="key">"fuelType"</span>:<span class="str">"CNG"</span>,    <span class="key">"pricePerUnit"</span>:<span class="num">43.00</span>,  <span class="key">"unit"</span>:<span class="str">"kg"</span>,    <span class="key">"effectiveDate"</span>:<span class="str">"2026-06-28"</span>, <span class="key">"updatedBy"</span>:<span class="str">"admin"</span> },
+  { <span class="key">"id"</span>:<span class="num">4</span>, <span class="key">"fuelType"</span>:<span class="str">"Electric"</span>, <span class="key">"pricePerUnit"</span>:<span class="num">10.00</span>, <span class="key">"unit"</span>:<span class="str">"kWh"</span>,  <span class="key">"effectiveDate"</span>:<span class="str">"2026-06-28"</span>, <span class="key">"updatedBy"</span>:<span class="str">"admin"</span> }
+] }</pre>
+  </div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/fuel-prices/<span class="param">{fuelType}</span></span><span class="auth-badge">🔒 JWT</span><span class="endpoint-desc">Price for a specific fuel type</span></div><div class="endpoint-body">
+    <p style="color:var(--muted)">Path param: <code>Diesel</code>, <code>Petrol</code>, <code>CNG</code>, <code>Octane</code>, <code>Electric</code></p>
+  </div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method POST">POST</span><span class="path">/fuel-prices</span><span class="auth-badge">🔒 JWT</span><span class="endpoint-desc">Create or update a fuel price (upsert by fuelType)</span></div><div class="endpoint-body">
+    <table class="param-table">
+      <tr><th>Field</th><th>Type</th><th></th><th>Description</th></tr>
+      <tr><td class="param-name">fuelType</td><td class="param-type">string</td><td class="param-req">required</td><td style="color:var(--muted)">Diesel | Petrol | CNG | Octane | Electric</td></tr>
+      <tr><td class="param-name">pricePerUnit</td><td class="param-type">decimal</td><td class="param-req">required</td><td style="color:var(--muted)">Price per unit in BDT</td></tr>
+      <tr><td class="param-name">unit</td><td class="param-type">string</td><td class="param-opt">default: Liter</td><td style="color:var(--muted)">Liter | kg | kWh</td></tr>
+      <tr><td class="param-name">effectiveDate</td><td class="param-type">YYYY-MM-DD</td><td class="param-opt">default: today</td><td style="color:var(--muted)">When price became effective</td></tr>
+      <tr><td class="param-name">notes</td><td class="param-type">string</td><td class="param-opt">optional</td><td style="color:var(--muted)">e.g. "BPC official rate"</td></tr>
+    </table>
+  </div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method PUT">PUT</span><span class="path">/fuel-prices/<span class="param">{id}</span></span><span class="auth-badge">🔒 JWT</span><span class="endpoint-desc">Update fuel price by ID</span></div><div class="endpoint-body"></div></div>
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method DELETE">DELETE</span><span class="path">/fuel-prices/<span class="param">{id}</span></span><span class="auth-badge">🔒 JWT</span><span class="endpoint-desc">Remove a fuel type price</span></div><div class="endpoint-body"></div></div>
+
+  <div class="endpoint open"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/fuel-prices/calculate</span><span class="auth-badge">🔒 JWT</span><span class="endpoint-desc">Estimate fuel cost for a trip</span></div><div class="endpoint-body">
+    <h3>Query Parameters</h3>
+    <table class="param-table">
+      <tr><th>Param</th><th>Type</th><th></th><th>Description</th></tr>
+      <tr><td class="param-name">vehicleReg</td><td class="param-type">string</td><td class="param-req">required</td><td style="color:var(--muted)">Vehicle registration number</td></tr>
+      <tr><td class="param-name">distanceKm</td><td class="param-type">double</td><td class="param-req">required</td><td style="color:var(--muted)">Trip distance in kilometres</td></tr>
+    </table>
+    <h3>Calculation Formula</h3>
+    <pre><span class="cm">// For each fuel type on the vehicle:</span>
+unitsUsed = (distanceKm / <span class="num">100</span>) × consumptionRate / numFuelTypes
+cost      = unitsUsed × pricePerUnit
+<span class="cm">// Hybrid vehicles split consumption equally across fuel types</span></pre>
+    <h3>Response</h3>
+    <pre>{ <span class="key">"data"</span>: {
+  <span class="key">"vehicleReg"</span>: <span class="str">"DHK-GA-1001"</span>,
+  <span class="key">"distanceKm"</span>: <span class="num">175</span>,
+  <span class="key">"fuelTypes"</span>: [<span class="str">"Diesel"</span>],
+  <span class="key">"isHybrid"</span>: <span class="kw">false</span>,
+  <span class="key">"breakdown"</span>: [{
+    <span class="key">"fuelType"</span>: <span class="str">"Diesel"</span>,
+    <span class="key">"pricePerUnit"</span>: <span class="num">114.00</span>,
+    <span class="key">"unit"</span>: <span class="str">"Liter"</span>,
+    <span class="key">"ratePerKm"</span>: <span class="str">"10.0 Liter/100km"</span>,
+    <span class="key">"unitsUsed"</span>: <span class="num">17.500</span>,
+    <span class="key">"estimatedCost"</span>: <span class="num">1995.00</span>
+  }],
+  <span class="key">"totalEstimatedCost"</span>: <span class="num">1995.00</span>,
+  <span class="key">"currency"</span>: <span class="str">"BDT"</span>
+} }</pre>
+    <div class="callout tip"><span class="callout-icon">💡</span><span>Hybrid example: <code>fuelTypes: ["Diesel","Electric"]</code> — consumption split 50/50. Set <code>consumptionRate</code> on the vehicle for accurate results; defaults are used otherwise.</span></div>
+  </div></div>
+
+  <h3 style="margin-top:20px">Vehicle Multi-Fuel Fields</h3>
+  <p style="color:var(--muted);margin-bottom:10px">These fields were added to <code>POST /vehicles</code> and <code>PUT /vehicles/{id}</code>:</p>
+  <table class="param-table">
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td class="param-name">fuelType</td><td class="param-type">string</td><td style="color:var(--muted)">Primary fuel type (Diesel | Petrol | CNG | Octane | Electric)</td></tr>
+    <tr><td class="param-name">fuelTypes</td><td class="param-type">string</td><td style="color:var(--muted)">JSON array of all fuel types e.g. <code>[Diesel,Electric]</code> for hybrid</td></tr>
+    <tr><td class="param-name">consumptionRate</td><td class="param-type">decimal</td><td style="color:var(--muted)">Fuel used per 100 km (liters, kg, or kWh depending on type)</td></tr>
+    <tr><td class="param-name">isHybrid</td><td class="param-type">boolean</td><td style="color:var(--muted)">Auto-set to true when fuelTypes has 2+ entries</td></tr>
+  </table>
 </section>
 
 <section class="section" id="routes-sec">
