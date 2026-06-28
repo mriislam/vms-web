@@ -155,34 +155,69 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       // ── Search bar + suggestions ────────────────────────────────────
       SafeArea(child: Column(children: [
         // Top bar
-        Container(
-          margin: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15),
-              blurRadius: 12, offset: const Offset(0, 4))]),
-          child: Row(children: [
-            IconButton(onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back_ios, size: 20)),
-            Expanded(child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Search location — ${widget.title}',
-                hintStyle: const TextStyle(fontSize: 14),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                suffixIcon: _searchCtrl.text.isNotEmpty
-                  ? IconButton(icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () { _searchCtrl.clear(); setState(() { _suggestions = []; _showSuggestions = false; }); })
-                  : null,
+        Row(
+          children: [
+            InkWell(
+              onTap: () {
+                Navigator.pop(context);
+              },
+              borderRadius: BorderRadius.circular(100),
+              child: Container(
+                height: 41,
+                width: 41,
+                margin: const EdgeInsets.only(left: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(100),
+                  color: Colors.white.withValues(alpha: 0.45),        // transparent glass
+                  border: Border.all(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.35),       // soft white border
+                    width: 1.5,
+                  ),
+                ),
+                child: const Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 5),
+                    child: Icon(
+                      Icons.arrow_back_ios,
+                      size: 20,
+                      color: Color(0xFF6366F1),                       // white icon
+                    ),
+                  ),
+                ),
               ),
-              onChanged: (v) => _searchPlaces(v),
-              onTap: () => setState(() => _showSuggestions = _suggestions.isNotEmpty),
-            )),
-            if (_loading) const Padding(padding: EdgeInsets.only(right: 12),
-              child: SizedBox(width: 18, height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2))),
-          ]),
+            ),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15),
+                    blurRadius: 12, offset: const Offset(0, 4))]),
+                child: Row(children: [
+
+                  Expanded(child: TextField(
+                    controller: _searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search location — ${widget.title}',
+                      hintStyle: const TextStyle(fontSize: 14),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      suffixIcon: _searchCtrl.text.isNotEmpty
+                        ? IconButton(icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () { _searchCtrl.clear(); setState(() { _suggestions = []; _showSuggestions = false; }); })
+                        : null,
+                    ),
+                    onChanged: (v) => _searchPlaces(v),
+                    onTap: () => setState(() => _showSuggestions = _suggestions.isNotEmpty),
+                  )),
+                  if (_loading) const Padding(padding: EdgeInsets.only(right: 12),
+                    child: SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))),
+                ]),
+              ),
+            ),
+          ],
         ),
 
         // Suggestions list

@@ -36,6 +36,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final res  = await ApiClient.post('/auth/login',
           {'username': username, 'password': password}, isAuth: true);
+      print("The response is $res");
       final data = res['data'] as Map<String, dynamic>;
       _token     = data['token'] as String;
       final raw  = data['user']  as Map<String, dynamic>? ??
@@ -46,6 +47,7 @@ class AuthProvider extends ChangeNotifier {
       try {
         final me = await ApiClient.get('/driver/me');
         final meData = me['data'] as Map<String, dynamic>? ?? {};
+
         if (meData.containsKey('driverId')) {
           _user = AppUser.fromJson({...raw, 'isDriver': true});
         }
@@ -54,6 +56,7 @@ class AuthProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('vms_token', _token!);
       await prefs.setString('vms_user', jsonEncode(raw));
+      print("get vms user ${prefs.getString("vms_user")}");
     } finally {
       _loading = false;
       notifyListeners();
