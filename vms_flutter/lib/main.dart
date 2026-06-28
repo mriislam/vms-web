@@ -35,11 +35,11 @@ class VmsApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title:           'NEXVMS',
-    debugShowCheckedModeBanner: false,
-    theme:           buildTheme(),
-    home:            const _Root(),
-  );
+        title: 'NEXVMS',
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(),
+        home: const _Root(),
+      );
 }
 
 class _Root extends StatelessWidget {
@@ -48,8 +48,8 @@ class _Root extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    if (!auth.ready) return const Scaffold(
-      body: Center(child: CircularProgressIndicator()));
+    if (!auth.ready)
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (!auth.isLoggedIn) return const LoginScreen();
     return const _MainShell();
   }
@@ -57,7 +57,8 @@ class _Root extends StatelessWidget {
 
 class _MainShell extends StatefulWidget {
   const _MainShell();
-  @override State<_MainShell> createState() => _MainShellState();
+  @override
+  State<_MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<_MainShell> {
@@ -71,51 +72,82 @@ class _MainShellState extends State<_MainShell> {
 
     if (user?.isDriverRole == true) {
       tabs = [
-        (screen: const DriverHomeScreen(),
-         tab: const BottomNavigationBarItem(icon: Icon(Icons.directions_car_outlined),
-           activeIcon: Icon(Icons.directions_car), label: "Today's Trips")),
-        (screen: const ProfileScreen(),
-         tab: const BottomNavigationBarItem(icon: Icon(Icons.person_outline),
-           activeIcon: Icon(Icons.person), label: 'Profile')),
+        (
+          screen: const DriverHomeScreen(),
+          tab: const BottomNavigationBarItem(
+              icon: Icon(Icons.directions_car_outlined),
+              activeIcon: Icon(Icons.directions_car),
+              label: "Today's Trips")
+        ),
+        (
+          screen: const ProfileScreen(),
+          tab: const BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile')
+        ),
       ];
     } else if (user?.isAdmin == true) {
       tabs = [
-        (screen: const ApprovalsScreen(),
-         tab: const BottomNavigationBarItem(icon: Icon(Icons.pending_actions_outlined),
-           activeIcon: Icon(Icons.pending_actions), label: 'Approvals')),
-        (screen: const MyRequestsScreen(),
-         tab: const BottomNavigationBarItem(icon: Icon(Icons.list_alt_outlined),
-           activeIcon: Icon(Icons.list_alt), label: 'All Trips')),
-        (screen: const ProfileScreen(),
-         tab: const BottomNavigationBarItem(icon: Icon(Icons.person_outline),
-           activeIcon: Icon(Icons.person), label: 'Profile')),
+        (
+          screen: const ApprovalsScreen(),
+          tab: const BottomNavigationBarItem(
+              icon: Icon(Icons.pending_actions_outlined),
+              activeIcon: Icon(Icons.pending_actions),
+              label: 'Approvals')
+        ),
+        (
+          screen: const MyRequestsScreen(),
+          tab: const BottomNavigationBarItem(
+              icon: Icon(Icons.list_alt_outlined),
+              activeIcon: Icon(Icons.list_alt),
+              label: 'All Trips')
+        ),
+        (
+          screen: const ProfileScreen(),
+          tab: const BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile')
+        ),
       ];
     } else {
       tabs = [
-        (screen: const MyRequestsScreen(),
-         tab: const BottomNavigationBarItem(icon: Icon(Icons.article_outlined),
-           activeIcon: Icon(Icons.article), label: 'My Bookings')),
-        (screen: const ProfileScreen(),
-         tab: const BottomNavigationBarItem(icon: Icon(Icons.person_outline),
-           activeIcon: Icon(Icons.person), label: 'Profile')),
+        (
+          screen: const MyRequestsScreen(),
+          tab: const BottomNavigationBarItem(
+              icon: Icon(Icons.article_outlined),
+              activeIcon: Icon(Icons.article),
+              label: 'My Bookings')
+        ),
+        (
+          screen: const ProfileScreen(),
+          tab: const BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile')
+        ),
       ];
     }
 
     if (_idx >= tabs.length) _idx = 0;
 
     return Scaffold(
-      body: IndexedStack(index: _idx, children: tabs.map((t) => t.screen).toList()),
+      body: IndexedStack(
+          index: _idx, children: tabs.map((t) => t.screen).toList()),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _idx,
         onDestinationSelected: (i) => setState(() => _idx = i),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         indicatorColor: AppColors.primaryBg,
-        destinations: tabs.map((t) => NavigationDestination(
-          icon:         t.tab.icon,
-          selectedIcon: t.tab.activeIcon ?? t.tab.icon,
-          label:        t.tab.label ?? '',
-        )).toList(),
+        destinations: tabs
+            .map((t) => NavigationDestination(
+                  icon: t.tab.icon,
+                  selectedIcon: t.tab.activeIcon ?? t.tab.icon,
+                  label: t.tab.label ?? '',
+                ))
+            .toList(),
       ),
     );
   }
