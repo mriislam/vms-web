@@ -3,7 +3,9 @@ import {
 } from '@ant-design/icons';
 import { Button, Form, Input, Spin, Typography } from 'antd';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLogin } from '../hooks/useAuth';
+import { useAuthStore } from '../stores/authStore';
 import apiClient from '../services/apiClient';
 
 const { Text } = Typography;
@@ -99,6 +101,8 @@ export default function LoginPage() {
   const [mfaLoading, setMfaLoading] = useState(false);
   const [selected,  setSelected]  = useState(null);
   const { mutate: login, isPending, error } = useLogin();
+  const setAuth  = useAuthStore((s) => s.setAuth);
+  const navigate = useNavigate();
 
   // Reset OTP when step changes
   useEffect(() => { if (step === 'mfa') setOtp(''); }, [step]);
@@ -115,15 +119,18 @@ export default function LoginPage() {
       const res  = await apiClient.post('/auth/login', vals);
       const data = res.data?.data ?? res.data;
       if (data?.mfaRequired) {
-        // Server requires 2FA
+        // 2FA required — go to OTP step
         setMfaData({ mfaToken: data.mfaToken, username: data.username });
         setStep('mfa');
+      } else if (data?.token) {
+        // No 2FA — set auth directly from this response, no second API call
+        setAuth({ token: data.token, username: data.username, fullName: data.fullName, role: data.role });
+        navigate('/dashboard');
       } else {
-        // No 2FA — standard login via hook
-        login(vals);
+        login(vals); // fallback: let hook handle
       }
     } catch {
-      login(vals); // let the hook show error
+      login(vals); // wrong password — hook displays error
     }
   }
 
@@ -136,11 +143,12 @@ export default function LoginPage() {
         { mfaToken: mfaData.mfaToken, code: otp });
       const data = res.data?.data;
       if (data?.token) {
-        const { useAuthStore } = await import('../stores/authStore');
-        useAuthStore.getState().setAuth({
-          token: data.token, username: data.username ?? mfaData.username,
-          fullName: data.name, role: data.role,
-        });
+        // data.fullName matches LoginResponse.java field name (not data.name)
+        setAuth({ token: data.token, username: data.username ?? mfaData.username,
+          fullName: data.fullName, role: data.role });
+        navigate('/dashboard');
+      } else {
+        setMfaErr('Verification failed. Please try again.');
       }
     } catch (e) {
       setMfaErr(e?.response?.data?.message ?? 'Invalid code. Try again.');
