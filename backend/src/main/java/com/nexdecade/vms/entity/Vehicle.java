@@ -62,6 +62,18 @@ public class Vehicle {
     @Column(nullable = false, length = 10, columnDefinition = "VARCHAR(10) DEFAULT 'active'")
     private String status;
 
+    /** JSON array of fuel types e.g. [Diesel,Electric] — supports hybrid */
+    @Column(length = 200)
+    private String fuelTypes;
+
+    /** Liters (or kWh/kg) consumed per 100 km */
+    @Column(precision = 6, scale = 2)
+    private BigDecimal consumptionRate;
+
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Builder.Default
+    private Boolean isHybrid = false;
+
     @Column(length = 40, columnDefinition = "VARCHAR(40) DEFAULT 'car'")
     private String vehicleIcon;
 

@@ -111,8 +111,19 @@ export default function Vehicles() {
 
   function openEdit(record) {
     setEditRecord(record);
+    // Parse fuelTypes JSON string → array for multi-select
+    let parsedFuelTypes = [];
+    if (record.fuelTypes) {
+      try {
+        const clean = record.fuelTypes.replace(/[\[\]"]/g, '');
+        parsedFuelTypes = clean.split(',').map(s=>s.trim()).filter(Boolean);
+        // Remove primary fuel from additional list
+        parsedFuelTypes = parsedFuelTypes.filter(f => f !== record.fuelType);
+      } catch (_) {}
+    }
     form.setFieldsValue({
       ...record,
+      fuelTypes:       parsedFuelTypes,
       vehicleIcon:     record.vehicleIcon     || 'car',
       insuranceExpiry: record.insuranceExpiry ? dayjs(record.insuranceExpiry) : null,
       purchaseDate:    record.purchaseDate    ? dayjs(record.purchaseDate)    : null,
@@ -123,8 +134,13 @@ export default function Vehicles() {
 
   function handleSubmit() {
     form.validateFields().then((values) => {
+      // Build fuelTypes JSON: combine primary + additional
+      const additionals = (values.fuelTypes ?? []).filter(f => f !== values.fuelType);
+      const allFuels    = [values.fuelType, ...additionals].filter(Boolean);
       const payload = {
         ...values,
+        fuelTypes:       allFuels.length > 1 ? `[${allFuels.join(',')}]` : `[${values.fuelType}]`,
+        isHybrid:        allFuels.length > 1,
         insuranceExpiry: values.insuranceExpiry?.format('YYYY-MM-DD') ?? null,
         purchaseDate:    values.purchaseDate?.format('YYYY-MM-DD')    ?? null,
         lastService:     values.lastService?.format('YYYY-MM-DD')     ?? null,
@@ -199,14 +215,43 @@ export default function Vehicles() {
             </Row>
             <Row gutter={16}>
               <Col span={6}><Form.Item name="year" label="Year" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={2000} max={2035} /></Form.Item></Col>
-              <Col span={6}><Form.Item name="type" label="Type" rules={[{ required: true }]}><Select options={['Pickup','Truck','SUV','Van','Bus','Microbus'].map((t) => ({ value: t, label: t }))} /></Form.Item></Col>
-              <Col span={6}><Form.Item name="fuelType" label="Fuel Type" rules={[{ required: true }]}><Select options={['Diesel','Petrol','CNG','Electric'].map((f) => ({ value: f, label: f }))} /></Form.Item></Col>
+              <Col span={6}><Form.Item name="type" label="Type" rules={[{ required: true }]}><Select options={['Pickup','Truck','SUV','Van','Bus','Microbus','Car','Motorcycle'].map((t) => ({ value: t, label: t }))} /></Form.Item></Col>
               <Col span={6}>
                 <Form.Item name="ownership" label="Ownership" rules={[{ required: true }]}>
                   <Select options={['Private','Government','Special'].map((o) => ({ value: o, label: o }))} />
                 </Form.Item>
               </Col>
             </Row>
+
+            {/* ── Fuel Configuration ──────────────────────────────── */}
+            <div style={{ background:'rgba(99,102,241,0.04)', border:'1.5px solid rgba(99,102,241,0.15)',
+              borderRadius:12, padding:'14px 16px', marginBottom:8 }}>
+              <div style={{ fontWeight:800, fontSize:12, color:'#6366f1', textTransform:'uppercase',
+                letterSpacing:'0.06em', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}>
+                <span>⛽</span> Fuel Configuration
+              </div>
+              <Row gutter={14}>
+                <Col span={12}>
+                  <Form.Item name="fuelType" label="Primary Fuel Type" rules={[{ required: true, message:'Select fuel type' }]}
+                    style={{ marginBottom:10 }}>
+                    <Select placeholder="Select primary fuel…"
+                      options={['Diesel','Petrol','CNG','Octane','Electric'].map((f) => ({ value: f, label: `${f==='Diesel'?'🛢️':f==='Petrol'?'⛽':f==='CNG'?'🔵':f==='Electric'?'⚡':'🔥'} ${f}` }))} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="consumptionRate" label="Consumption Rate (per 100 km)" style={{ marginBottom:10 }}
+                    tooltip="e.g. 10 = 10 liters per 100 km. Used for fuel cost calculation.">
+                    <InputNumber style={{ width:'100%' }} min={0.1} max={100} step={0.5} precision={1}
+                      placeholder="e.g. 10.0" />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Form.Item name="fuelTypes" label="Additional Fuel Types (for Hybrid vehicles)" style={{ marginBottom:0 }}
+                tooltip="Select multiple for hybrid vehicles e.g. Diesel + Electric">
+                <Select mode="multiple" placeholder="Select additional fuel types (optional — leave empty for single-fuel vehicles)"
+                  options={['Diesel','Petrol','CNG','Octane','Electric'].map((f) => ({ value: f, label: f }))} />
+              </Form.Item>
+            </div>
           </FormSection>
 
           <FormSection title="Technical Details" color="#1677ff">
