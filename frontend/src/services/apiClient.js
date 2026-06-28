@@ -38,7 +38,11 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthEndpoint = error.config?.url?.includes('/auth/');
+    // Only redirect to login for 401s on protected (non-auth) endpoints.
+    // Auth endpoints like /auth/verify-mfa legitimately return 401 for wrong codes
+    // — intercepting those would incorrectly send the user back to login mid-flow.
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       useAuthStore.getState().clearAuth();
       window.location.href = '/login';
     }

@@ -39,7 +39,7 @@ function Particles() {
   );
 }
 
-// ── 6-digit OTP Input ─────────────────────────────────────────────────────────
+// ── 6-digit OTP Input — individual boxes ─────────────────────────────────────
 function OtpInput({ value, onChange }) {
   const inputs = useRef([]);
   const digits = (value || '').split('').concat(Array(6).fill('')).slice(0, 6);
@@ -49,40 +49,52 @@ function OtpInput({ value, onChange }) {
     if (d === 'Backspace') {
       const next = digits.map((v, j) => j === i ? '' : v).join('');
       onChange(next);
-      if (i > 0) inputs.current[i - 1]?.focus();
+      if (i > 0 && !digits[i]) inputs.current[i - 1]?.focus();
     } else if (/^\d$/.test(d)) {
       const next = digits.map((v, j) => j === i ? d : v).join('');
       onChange(next);
-      if (i < 5) inputs.current[i + 1]?.focus();
+      if (i < 5) setTimeout(() => inputs.current[i + 1]?.focus(), 10);
+    } else if (d !== 'Tab') {
+      e.preventDefault();
     }
-    e.preventDefault();
   }
 
   function handlePaste(e) {
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     onChange(pasted.padEnd(6, '').slice(0, 6));
-    inputs.current[Math.min(pasted.length, 5)]?.focus();
+    setTimeout(() => inputs.current[Math.min(pasted.length, 5)]?.focus(), 10);
     e.preventDefault();
   }
 
   return (
-    <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
+    <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
       {digits.map((d, i) => (
         <input
           key={i}
           ref={el => inputs.current[i] = el}
           value={d}
-          onChange={() => {}}
+          type="text"
+          inputMode="numeric"
+          onChange={e => {
+            const v = e.target.value.replace(/\D/g,'').slice(-1);
+            if (!v) return;
+            const next = digits.map((dv, j) => j === i ? v : dv).join('');
+            onChange(next);
+            if (i < 5) setTimeout(() => inputs.current[i + 1]?.focus(), 10);
+          }}
           onKeyDown={e => handleKey(i, e)}
           onPaste={handlePaste}
+          onFocus={e => e.target.select()}
           maxLength={1}
           style={{
-            width:52, height:60, textAlign:'center', fontSize:26, fontWeight:800,
-            borderRadius:14, border:`2.5px solid ${d ? '#6366f1' : '#e2e8f0'}`,
-            background: d ? '#eef1ff' : '#fafbff',
+            width:48, height:56, textAlign:'center', fontSize:24, fontWeight:900,
+            borderRadius:12,
+            border: d ? '2px solid #6366f1' : '2px solid #e2e8f0',
+            background: d ? 'linear-gradient(135deg,#eef1ff,#f5f3ff)' : '#fff',
             color:'#6366f1', outline:'none', transition:'all 0.15s',
-            boxShadow: d ? '0 0 0 3px rgba(99,102,241,0.15)' : 'none',
-            caretColor:'transparent',
+            boxShadow: d ? '0 0 0 4px rgba(99,102,241,0.12)' : '0 1px 3px rgba(0,0,0,0.06)',
+            caretColor:'transparent', cursor:'text',
+            fontFamily:"'Inter','Roboto',monospace",
           }}
           inputMode="numeric"
         />
@@ -373,43 +385,69 @@ export default function LoginPage() {
 
           {/* ── STEP 2: 2FA TOTP ─────────────────────────────────────── */}
           {step === 'mfa' && (
-            <div style={{ textAlign:'center' }}>
-              {/* Google Auth icon */}
-              <div style={{
-                width:80, height:80, borderRadius:'50%', margin:'0 auto 20px',
-                background:'linear-gradient(135deg,#4285F4,#34A853)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                boxShadow:'0 8px 32px rgba(66,133,244,0.35)',
-                fontSize:38,
-              }}>🔐</div>
-
-              <div style={{ fontSize:22, fontWeight:900, color:'#1e293b', letterSpacing:'-0.02em', marginBottom:6 }}>
-                Two-Factor Verification
+            <div>
+              {/* Header */}
+              <div style={{ textAlign:'center', marginBottom:24 }}>
+                <div style={{
+                  width:72, height:72, borderRadius:20, margin:'0 auto 14px',
+                  background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  boxShadow:'0 8px 24px rgba(99,102,241,0.35)', fontSize:32,
+                }}>🔐</div>
+                <div style={{ fontSize:20, fontWeight:900, color:'#1e293b', letterSpacing:'-0.02em' }}>
+                  Two-Factor Verification
+                </div>
+                <Text style={{ color:'#64748b', fontSize:13, display:'block', marginTop:6 }}>
+                  Signing in as <strong style={{ color:'#6366f1' }}>{mfaData?.username}</strong>
+                </Text>
               </div>
-              <Text style={{ color:'#64748b', fontSize:13, display:'block', marginBottom:28 }}>
-                Open <strong>Google Authenticator</strong> on your phone and enter the 6-digit code for <strong>NEXVMS</strong>.
-              </Text>
 
+              {/* Instruction card */}
+              <div style={{
+                background:'rgba(99,102,241,0.04)', border:'1px solid rgba(99,102,241,0.15)',
+                borderRadius:12, padding:'12px 16px', marginBottom:20,
+                display:'flex', alignItems:'center', gap:10,
+              }}>
+                <span style={{ fontSize:20 }}>📱</span>
+                <Text style={{ fontSize:13, color:'#475569' }}>
+                  Open <strong>Google Authenticator</strong> → find <strong>NEXVMS</strong> → enter the 6-digit code below
+                </Text>
+              </div>
+
+              {/* OTP boxes */}
               <OtpInput value={otp} onChange={setOtp} />
 
+              {/* Code refreshes hint */}
+              <div style={{ textAlign:'center', marginTop:10, marginBottom:4 }}>
+                <Text style={{ fontSize:11, color:'#94a3b8' }}>
+                  Code refreshes every 30 seconds — if expired, wait for the next one
+                </Text>
+              </div>
+
+              {/* Error */}
               {mfaErr && (
-                <div style={{ margin:'14px 0', padding:'10px 14px', borderRadius:10,
-                  background:'#fff1f2', border:'1px solid #fca5a5', color:'#e11d48', fontSize:13 }}>
-                  ⚠️ {mfaErr}
+                <div style={{ margin:'12px 0', padding:'10px 14px', borderRadius:10,
+                  background:'#fff1f2', border:'1px solid #fca5a5', color:'#e11d48', fontSize:13,
+                  display:'flex', alignItems:'center', gap:8 }}>
+                  <span>⚠️</span> {mfaErr}
                 </div>
               )}
 
+              {/* Verify button */}
               <Button type="primary" size="large" block
                 loading={mfaLoading}
                 onClick={verifyMfa}
                 disabled={otp.length !== 6}
                 style={{
                   height:50, borderRadius:12, fontWeight:800, fontSize:15,
-                  background:'linear-gradient(135deg,#059669,#06b6d4)',
-                  border:'none', boxShadow:'0 4px 20px rgba(5,150,105,0.4)',
-                  marginTop:20,
+                  background: otp.length === 6
+                    ? 'linear-gradient(135deg,#6366f1,#8b5cf6)'
+                    : undefined,
+                  border:'none',
+                  boxShadow: otp.length === 6 ? '0 4px 20px rgba(99,102,241,0.4)' : undefined,
+                  marginTop:14,
                 }}>
-                <MobileOutlined /> Verify Code
+                Verify &amp; Sign In →
               </Button>
 
               <button
