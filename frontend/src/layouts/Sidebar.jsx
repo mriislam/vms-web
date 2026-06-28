@@ -3,6 +3,7 @@ import {
   AppstoreOutlined,
   AuditOutlined,
   CarOutlined,
+  CodeOutlined,
   ControlOutlined,
   DashboardOutlined,
   EnvironmentOutlined,
@@ -129,6 +130,7 @@ const MENU_GROUPS = [
       { key: '/user-admin',       icon: <TeamOutlined />,    color: '#f43f5e', label: 'User Admin' },
       { key: '/role-permissions', icon: <SafetyOutlined />,  color: '#f97316', label: 'Role Permissions' },
       { key: '/settings',         icon: <SettingOutlined />, color: '#94a3b8', label: 'App Settings' },
+      { key: '/developer',        icon: <CodeOutlined />,    color: '#6366f1', label: 'Developer' },
     ],
   },
 ];
