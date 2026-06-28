@@ -96,7 +96,6 @@ function OtpInput({ value, onChange }) {
             caretColor:'transparent', cursor:'text',
             fontFamily:"'Inter','Roboto',monospace",
           }}
-          inputMode="numeric"
         />
       ))}
     </div>
