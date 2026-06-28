@@ -32,7 +32,7 @@ public class SecurityConfig {
             .cors(cors -> {})
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/health", "/api/auth/verify-mfa").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/verify-mfa", "/api/auth/logout", "/api/health").permitAll()
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authProvider())

@@ -166,6 +166,17 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("2FA disabled"));
     }
 
+    /** Admin resets (disables) 2FA for any user by their username */
+    @PostMapping("/reset-mfa/{username}")
+    public ResponseEntity<ApiResponse<String>> adminResetMfa(@PathVariable String username) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found: " + username));
+        user.setMfaEnabled(false);
+        user.setMfaSecret(null);
+        userRepository.save(user);
+        return ResponseEntity.ok(ApiResponse.ok("2FA has been reset for " + username));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout() {
         return ResponseEntity.ok(ApiResponse.ok("Logged out", null));

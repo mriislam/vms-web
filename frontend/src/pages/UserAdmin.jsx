@@ -5,7 +5,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Alert, Button, Card, Col, Descriptions, Drawer, Form, Input, Popconfirm,
-  Row, Select, Spin, Switch, Table, Tag, Tooltip, message,
+  Modal, Row, Select, Spin, Switch, Table, Tag, Tooltip, message,
 } from 'antd';
 import apiClient from '../services/apiClient';
 import { useState } from 'react';
@@ -43,11 +43,8 @@ export default function UserAdmin() {
   const [pwdModal, setPwdModal]     = useState(null);
   const [pwdForm] = Form.useForm();
   const [form] = Form.useForm();
-  // 2FA state
-  const [mfaSetup,   setMfaSetup]   = useState(null);  // { secret, otpUri }
-  const [mfaCode,    setMfaCode]    = useState('');
+  // 2FA admin reset state
   const [mfaLoading, setMfaLoading] = useState(false);
-  const [disableMfaCode, setDisableMfaCode] = useState('');
   const qc = useQueryClient();
 
   const { data, isLoading, save, remove, isSaving } = useApiCrud('users', userService, {
@@ -92,40 +89,20 @@ export default function UserAdmin() {
       && (statusFilter === 'all' || d.status === statusFilter);
   });
 
-  function openAdd() { setEditRecord(null); form.resetFields(); setMfaSetup(null); setMfaCode(''); setModalOpen(true); }
-  function openEdit(record) { setEditRecord(record); form.setFieldsValue({ ...record }); setMfaSetup(null); setMfaCode(''); setDisableMfaCode(''); setModalOpen(true); }
+  function openAdd() { setEditRecord(null); form.resetFields(); setModalOpen(true); }
+  function openEdit(record) { setEditRecord(record); form.setFieldsValue({ ...record }); setModalOpen(true); }
 
-  async function startMfaSetup() {
+  async function adminReset2FA(username) {
     setMfaLoading(true);
     try {
-      const res = await apiClient.get('/auth/setup-mfa');
-      setMfaSetup(res.data.data);
-      setMfaCode('');
-    } catch { message.error('Failed to generate 2FA setup — ensure you are logged in as this user'); }
-    finally { setMfaLoading(false); }
-  }
-
-  async function confirmEnableMfa() {
-    if (mfaCode.length !== 6) { message.warning('Enter the 6-digit code from Google Authenticator'); return; }
-    setMfaLoading(true);
-    try {
-      await apiClient.post('/auth/enable-mfa', { code: mfaCode });
-      message.success('✓ 2FA enabled successfully');
-      setMfaSetup(null); setMfaCode('');
+      await apiClient.post(`/auth/reset-mfa/${username}`);
+      message.success(`✓ 2FA has been disabled for ${username}`);
       qc.invalidateQueries({ queryKey: ['users'] });
-    } catch (e) { message.error(e?.response?.data?.message ?? 'Invalid code. Try again.'); }
-    finally { setMfaLoading(false); }
-  }
-
-  async function confirmDisableMfa() {
-    if (disableMfaCode.length !== 6) { message.warning('Enter the 6-digit code to confirm disabling 2FA'); return; }
-    setMfaLoading(true);
-    try {
-      await apiClient.post('/auth/disable-mfa', { code: disableMfaCode });
-      message.success('2FA disabled');
-      setDisableMfaCode('');
-      qc.invalidateQueries({ queryKey: ['users'] });
-    } catch (e) { message.error(e?.response?.data?.message ?? 'Invalid code'); }
+      // Refresh the editRecord
+      const res = await apiClient.get(`/users`);
+      const updated = (res.data?.data ?? []).find(u => u.username === username);
+      if (updated) setEditRecord(updated);
+    } catch (e) { message.error(e?.response?.data?.message ?? 'Failed to reset 2FA'); }
     finally { setMfaLoading(false); }
   }
   function openPwdModal(record) { setPwdModal(record); pwdForm.resetFields(); }
@@ -216,124 +193,61 @@ export default function UserAdmin() {
 
           {/* ── 2FA Section (edit only) ─────────────────────────────── */}
           {editRecord && (
-            <FormSection title="Two-Factor Authentication (2FA)" color="#6366f1" icon={<SafetyOutlined />}>
-              {editRecord.mfaEnabled ? (
-                /* ── 2FA ENABLED ── */
-                <div style={{ background:'rgba(16,185,129,0.06)', border:'1.5px solid rgba(16,185,129,0.25)',
-                  borderRadius:12, padding:'16px 18px' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
-                    <div style={{ width:36, height:36, borderRadius:10, background:'rgba(16,185,129,0.15)',
-                      display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      <SafetyOutlined style={{ color:'#10b981', fontSize:18 }} />
-                    </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:800, color:'#10b981', fontSize:14 }}>2FA Active ✓</div>
-                      <div style={{ fontSize:12, color:'#64748b' }}>Google Authenticator is protecting this account</div>
-                    </div>
-                    <Tag color="success" style={{ fontWeight:700, borderRadius:20, padding:'2px 12px' }}>ENABLED</Tag>
+            <FormSection title="Two-Factor Authentication" color="#6366f1" icon={<SafetyOutlined />}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                padding:'14px 16px', borderRadius:12,
+                background: editRecord.mfaEnabled ? 'rgba(16,185,129,0.06)' : 'rgba(241,245,249,0.8)',
+                border: `1.5px solid ${editRecord.mfaEnabled ? 'rgba(16,185,129,0.3)' : '#e2e8f0'}`,
+              }}>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{
+                    width:40, height:40, borderRadius:10, flexShrink:0,
+                    background: editRecord.mfaEnabled ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.15)',
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:20,
+                  }}>
+                    {editRecord.mfaEnabled ? '🔐' : '🔓'}
                   </div>
-                  <div style={{ background:'#fff', borderRadius:10, padding:'12px 14px', border:'1px solid rgba(16,185,129,0.15)' }}>
-                    <div style={{ fontSize:12, color:'#64748b', marginBottom:8, fontWeight:600 }}>
-                      🔑 To disable 2FA, enter a code from your authenticator app:
+                  <div>
+                    <div style={{ fontWeight:800, fontSize:14,
+                      color: editRecord.mfaEnabled ? '#059669' : '#64748b' }}>
+                      {editRecord.mfaEnabled ? '2FA is Active' : '2FA is Disabled'}
                     </div>
-                    <div style={{ display:'flex', gap:8 }}>
-                      <Input placeholder="6-digit code" maxLength={6} value={disableMfaCode}
-                        onChange={e => setDisableMfaCode(e.target.value.replace(/\D/g,''))}
-                        style={{ width:160, textAlign:'center', fontSize:22, fontWeight:800,
-                          letterSpacing:6, borderRadius:10, border:'2px solid #e2e8f0' }} />
-                      <Button danger loading={mfaLoading} onClick={confirmDisableMfa}
-                        disabled={disableMfaCode.length !== 6}
-                        style={{ borderRadius:10, fontWeight:700, height:40 }}>
+                    <div style={{ fontSize:12, color:'#94a3b8', marginTop:1 }}>
+                      {editRecord.mfaEnabled
+                        ? 'This account is protected by Google Authenticator'
+                        : 'User can enable 2FA from their own profile'}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <Tag color={editRecord.mfaEnabled ? 'success' : 'default'}
+                    style={{ fontWeight:700, borderRadius:20, padding:'3px 14px', fontSize:12 }}>
+                    {editRecord.mfaEnabled ? 'ENABLED' : 'DISABLED'}
+                  </Tag>
+                  {editRecord.mfaEnabled && (
+                    <Tooltip title="Admin reset — disables 2FA for this user. They must re-enable it themselves.">
+                      <Button danger loading={mfaLoading} size="small"
+                        style={{ borderRadius:8, fontWeight:700 }}
+                        onClick={() => {
+                          Modal.confirm({
+                            title: `Disable 2FA for ${editRecord.username}?`,
+                            content: 'This will remove Google Authenticator protection. The user can re-enable it from their profile.',
+                            okText: 'Yes, Disable 2FA',
+                            okButtonProps: { danger: true },
+                            onOk: () => adminReset2FA(editRecord.username),
+                          });
+                        }}>
                         Disable 2FA
                       </Button>
-                    </div>
-                  </div>
+                    </Tooltip>
+                  )}
                 </div>
-              ) : !mfaSetup ? (
-                /* ── 2FA DISABLED — step 0: call to action ── */
-                <div style={{ background:'rgba(99,102,241,0.04)', border:'1.5px dashed rgba(99,102,241,0.3)',
-                  borderRadius:12, padding:'20px', textAlign:'center' }}>
-                  <div style={{ fontSize:32, marginBottom:8 }}>🔐</div>
-                  <div style={{ fontWeight:800, fontSize:15, color:'#1e293b', marginBottom:4 }}>
-                    Two-Factor Authentication is OFF
-                  </div>
-                  <div style={{ fontSize:13, color:'#64748b', marginBottom:16 }}>
-                    Add an extra layer of security using Google Authenticator
-                  </div>
-                  <Button type="primary" icon={<QrcodeOutlined />} loading={mfaLoading} onClick={startMfaSetup}
-                    size="large"
-                    style={{ borderRadius:10, fontWeight:700, background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                      border:'none', boxShadow:'0 4px 14px rgba(99,102,241,0.4)', height:44, paddingInline:28 }}>
-                    Enable Google Authenticator
-                  </Button>
-                </div>
-              ) : (
-                /* ── 2FA SETUP — step 1+2: scan + verify ── */
-                <div>
-                  {/* Steps indicator */}
-                  <div style={{ display:'flex', gap:0, marginBottom:20 }}>
-                    {['Scan QR Code', 'Verify Code', 'Done!'].map((s, i) => (
-                      <div key={s} style={{ flex:1, textAlign:'center' }}>
-                        <div style={{ display:'flex', alignItems:'center' }}>
-                          {i > 0 && <div style={{ flex:1, height:2, background: i === 1 ? '#6366f1' : '#e2e8f0', marginTop:-10 }} />}
-                          <div style={{
-                            width:28, height:28, borderRadius:'50%', margin:'0 auto',
-                            background: i <= 1 ? '#6366f1' : '#e2e8f0',
-                            color: i <= 1 ? '#fff' : '#94a3b8',
-                            display:'flex', alignItems:'center', justifyContent:'center',
-                            fontWeight:800, fontSize:13,
-                          }}>{i + 1}</div>
-                          {i < 2 && <div style={{ flex:1, height:2, background:'#e2e8f0', marginTop:-10 }} />}
-                        </div>
-                        <div style={{ fontSize:11, color: i <= 1 ? '#6366f1' : '#94a3b8', marginTop:4, fontWeight:600 }}>{s}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Step 1: QR code */}
-                  <div style={{ background:'#fafbff', border:'1px solid rgba(99,102,241,0.12)',
-                    borderRadius:12, padding:'16px', marginBottom:14, textAlign:'center' }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#1e293b', marginBottom:4 }}>
-                      📱 Open Google Authenticator → Add account → Scan QR code
-                    </div>
-                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>
-                      Or manually enter the key:&nbsp;
-                      <code style={{ background:'#f1f5f9', padding:'3px 8px', borderRadius:6,
-                        fontSize:12, fontWeight:700, color:'#6366f1', letterSpacing:1 }}>
-                        {mfaSetup.secret}
-                      </code>
-                    </div>
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(mfaSetup.otpUri)}`}
-                      alt="2FA QR Code"
-                      style={{ borderRadius:14, border:'4px solid #6366f1',
-                        boxShadow:'0 8px 24px rgba(99,102,241,0.25)' }}
-                      width={200} height={200}
-                    />
-                  </div>
-
-                  {/* Step 2: Enter code */}
-                  <div style={{ background:'#fff', border:'1px solid rgba(99,102,241,0.15)',
-                    borderRadius:12, padding:'16px' }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#1e293b', marginBottom:12 }}>
-                      ✅ Step 2 — Enter the 6-digit code from your app to confirm:
-                    </div>
-                    <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                      <Input placeholder="0 0 0 0 0 0" maxLength={6} value={mfaCode}
-                        onChange={e => setMfaCode(e.target.value.replace(/\D/g,''))}
-                        style={{ width:180, textAlign:'center', fontSize:24, fontWeight:900,
-                          letterSpacing:8, borderRadius:10, border:'2px solid #6366f1',
-                          background:'#eef1ff', height:50 }} />
-                      <Button type="primary" loading={mfaLoading} onClick={confirmEnableMfa}
-                        disabled={mfaCode.length !== 6} size="large"
-                        style={{ borderRadius:10, fontWeight:700, height:50, paddingInline:22,
-                          background:'linear-gradient(135deg,#059669,#06b6d4)', border:'none' }}>
-                        Verify &amp; Enable 2FA
-                      </Button>
-                      <Button onClick={() => { setMfaSetup(null); setMfaCode(''); }}
-                        style={{ borderRadius:10, height:50 }}>Cancel</Button>
-                    </div>
-                  </div>
+              </div>
+              {!editRecord.mfaEnabled && (
+                <div style={{ marginTop:10, fontSize:12, color:'#94a3b8',
+                  display:'flex', alignItems:'center', gap:6 }}>
+                  <span>💡</span>
+                  Users can enable 2FA themselves by clicking their profile avatar → <strong>Edit Profile</strong> → 2FA section.
                 </div>
               )}
             </FormSection>
