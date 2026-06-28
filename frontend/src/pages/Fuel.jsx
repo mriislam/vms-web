@@ -236,8 +236,9 @@ export default function Fuel() {
           </div>
         }
         extra={
-          <Button type="primary" ghost size="small" icon={<PlusOutlined/>}
-            onClick={()=>openPriceEdit(null)} style={{ borderRadius:8, fontWeight:700 }}>
+          <Button type="primary" size="small" icon={<PlusOutlined/>}
+            onClick={()=>openPriceEdit(null)}
+            style={{ borderRadius:8, fontWeight:700, color:'#fff' }}>
             Add Fuel Type
           </Button>
         }

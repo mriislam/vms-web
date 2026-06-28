@@ -254,17 +254,30 @@ input, textarea, .ant-input, .ant-input-textarea textarea {
   box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
 }
 
-/* ── Primary button gradient ─────────────────────────────────────────────── */
-.ant-btn-primary:not([disabled]) {
+/* ── Primary button gradient (exclude ghost/text variants) ───────────────── */
+.ant-btn-primary:not([disabled]):not(.ant-btn-background-ghost):not(.ant-btn-link):not(.ant-btn-text) {
   background: linear-gradient(135deg,#6366f1,#8b5cf6) !important;
   border: none !important;
   box-shadow: 0 4px 14px rgba(99,102,241,0.4) !important;
   font-weight: 700 !important;
+  color: #fff !important;
 }
-.ant-btn-primary:not([disabled]):hover {
+.ant-btn-primary:not([disabled]):not(.ant-btn-background-ghost):not(.ant-btn-link):not(.ant-btn-text):hover {
   background: linear-gradient(135deg,#4f46e5,#7c3aed) !important;
   box-shadow: 0 6px 20px rgba(99,102,241,0.5) !important;
   transform: translateY(-1px);
+}
+/* Ghost primary — transparent bg, indigo text/border, white text on hover */
+.ant-btn-primary.ant-btn-background-ghost:not([disabled]) {
+  color: #6366f1 !important;
+  border-color: #6366f1 !important;
+  background: transparent !important;
+  font-weight: 700 !important;
+}
+.ant-btn-primary.ant-btn-background-ghost:not([disabled]):hover {
+  background: #6366f1 !important;
+  color: #fff !important;
+  border-color: #6366f1 !important;
 }
 
 /* ── Tag improvements ────────────────────────────────────────────────────── */
