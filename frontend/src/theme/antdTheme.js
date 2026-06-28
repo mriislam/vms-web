@@ -72,8 +72,9 @@ export const darkTheme = {
       colorBgContainer:    '#0d1628',
       colorBorderSecondary:'rgba(99,102,241,0.12)',
       borderRadiusLG:       16,
-      paddingLG:            24,
+      paddingLG:            20,
       fontFamily:           FONT,
+      boxShadowTertiary:   '0 4px 20px rgba(0,0,0,0.3)',
     },
     Table: {
       colorBgContainer: '#0d1628',
@@ -217,7 +218,7 @@ export const lightTheme = {
     },
     Card: {
       borderRadiusLG:       16,
-      paddingLG:            24,
+      paddingLG:            20,
       fontFamily:           FONT,
       colorBorderSecondary: 'rgba(99,102,241,0.1)',
     },
