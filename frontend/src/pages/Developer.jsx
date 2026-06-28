@@ -4,7 +4,7 @@ import { useUIStore } from '../stores/uiStore';
 
 const { Text } = Typography;
 
-const API_DOCS_URL = 'https://claude.ai/code/artifact/065e97d7-5db8-4f92-b269-519eb7fe18fb';
+const API_DOCS_URL = '/api-docs.html'; // served from same origin — no auth needed
 const BASE_URL     = 'https://demo-vms.nexdecade.com/api';
 
 export default function DeveloperPage() {
@@ -62,7 +62,7 @@ export default function DeveloperPage() {
           icon={<ExportOutlined />}
           size="small"
           style={{ borderRadius: 8, flexShrink: 0, fontWeight: 600 }}
-          onClick={() => window.open(API_DOCS_URL, '_blank')}
+          onClick={() => window.open('/api-docs.html', '_blank')}
         >
           Open Full Page
         </Button>
