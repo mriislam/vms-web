@@ -1,16 +1,20 @@
 import {
   BellOutlined,
+  EditOutlined,
+  LockOutlined,
   LogoutOutlined,
   MoonOutlined,
   NotificationOutlined,
+  SaveOutlined,
   SearchOutlined,
   SunOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { Avatar, Badge, Button, Dropdown, Grid, Input, Layout, Space, Typography } from 'antd';
+import { Avatar, Badge, Button, Dropdown, Form, Grid, Input, Modal, Select, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import apiClient from '../services/apiClient';
 import { useLogout } from '../hooks/useAuth';
 import { noticeService } from '../services/noticeService';
 import { useAuthStore } from '../stores/authStore';
@@ -127,6 +131,12 @@ export default function AppHeader() {
   const screens   = useBreakpoint();
   const now       = useClock();
   const backendStatus = useBackendHealth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileForm] = Form.useForm();
+  const [saving, setSaving] = useState(false);
+  const [pwdOpen, setPwdOpen] = useState(false);
+  const [pwdForm] = Form.useForm();
+  const [pwdSaving, setPwdSaving] = useState(false);
 
   const meta = PAGE_META[location.pathname] ?? { title: 'VMS', color: '#6366f1' };
   const role = user?.role ?? 'operator';
@@ -158,6 +168,11 @@ export default function AppHeader() {
           </div>
         ),
       },
+      { type: 'divider' },
+      { key: 'profile', icon: <EditOutlined />, label: 'Edit Profile',
+        onClick: () => { profileForm.setFieldsValue({ fullName: user?.name, email: user?.email, phone: user?.phone, department: user?.department }); setProfileOpen(true); } },
+      { key: 'password', icon: <LockOutlined />, label: 'Change Password',
+        onClick: () => { pwdForm.resetFields(); setPwdOpen(true); } },
       { type: 'divider' },
       { key: 'logout', icon: <LogoutOutlined />, label: 'Sign Out', danger: true, onClick: () => logout() },
     ],
@@ -310,6 +325,81 @@ export default function AppHeader() {
           </Dropdown>
         </div>
       </Header>
+
+      {/* ── Edit Profile Modal ───────────────────────────────────────────── */}
+      <Modal open={profileOpen} onCancel={() => setProfileOpen(false)} footer={null}
+        title={<><EditOutlined style={{ color:'#6366f1', marginRight:8 }}/>Edit My Profile</>}
+        width={480} destroyOnClose>
+        <Form form={profileForm} layout="vertical" style={{ marginTop:16 }}
+          onFinish={async (vals) => {
+            setSaving(true);
+            try {
+              await apiClient.put(`/users/${user?.username}`, vals);
+              setProfileOpen(false);
+              window.location.reload(); // refresh to pick up new name
+            } catch { } finally { setSaving(false); }
+          }}>
+          <Form.Item name="fullName" label="Full Name" rules={[{ required: true }]}>
+            <Input prefix={<UserOutlined />} placeholder="Full name" size="large" style={{ borderRadius:10 }} />
+          </Form.Item>
+          <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}>
+            <Input placeholder="Email address" size="large" style={{ borderRadius:10 }} />
+          </Form.Item>
+          <Form.Item name="phone" label="Phone">
+            <Input placeholder="Phone number" size="large" style={{ borderRadius:10 }} />
+          </Form.Item>
+          <Form.Item name="department" label="Department">
+            <Select size="large" style={{ borderRadius:10 }} placeholder="Select department"
+              options={['IT','Operations','Finance','HR','Admin','Logistics','Procurement','Fleet Management']
+                .map(d => ({ value:d, label:d }))} />
+          </Form.Item>
+          <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:8 }}>
+            <Button onClick={() => setProfileOpen(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" loading={saving} icon={<SaveOutlined />}
+              style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, fontWeight:700 }}>
+              Save Changes
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* ── Change Password Modal ────────────────────────────────────────── */}
+      <Modal open={pwdOpen} onCancel={() => setPwdOpen(false)} footer={null}
+        title={<><LockOutlined style={{ color:'#6366f1', marginRight:8 }}/>Change Password</>}
+        width={420} destroyOnClose>
+        <Form form={pwdForm} layout="vertical" style={{ marginTop:16 }}
+          onFinish={async (vals) => {
+            setPwdSaving(true);
+            try {
+              await apiClient.post(`/users/me/change-password`, { currentPassword: vals.current, newPassword: vals.newPwd });
+              setPwdOpen(false);
+            } catch (e) { } finally { setPwdSaving(false); }
+          }}>
+          <Form.Item name="current" label="Current Password" rules={[{ required: true }]}>
+            <Input.Password placeholder="Current password" size="large" style={{ borderRadius:10 }} />
+          </Form.Item>
+          <Form.Item name="newPwd" label="New Password" rules={[{ required: true, min: 6 }]}>
+            <Input.Password placeholder="New password (min 6 chars)" size="large" style={{ borderRadius:10 }} />
+          </Form.Item>
+          <Form.Item name="confirm" label="Confirm Password"
+            dependencies={['newPwd']}
+            rules={[{ required: true }, ({ getFieldValue }) => ({
+              validator(_, v) {
+                return !v || getFieldValue('newPwd') === v
+                  ? Promise.resolve() : Promise.reject('Passwords do not match');
+              }
+            })]}>
+            <Input.Password placeholder="Confirm new password" size="large" style={{ borderRadius:10 }} />
+          </Form.Item>
+          <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+            <Button onClick={() => setPwdOpen(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" loading={pwdSaving} icon={<LockOutlined />}
+              style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, fontWeight:700 }}>
+              Update Password
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </>
   );
 }

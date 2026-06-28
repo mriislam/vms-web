@@ -218,99 +218,122 @@ export default function UserAdmin() {
           {editRecord && (
             <FormSection title="Two-Factor Authentication (2FA)" color="#6366f1" icon={<SafetyOutlined />}>
               {editRecord.mfaEnabled ? (
-                /* ── 2FA is ON — show disable option ── */
-                <div>
-                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12,
-                    background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.25)',
-                    borderRadius:10, padding:'10px 14px' }}>
-                    <SafetyOutlined style={{ color:'#10b981', fontSize:18 }} />
-                    <div>
-                      <div style={{ fontWeight:700, color:'#10b981', fontSize:13 }}>2FA is ENABLED</div>
-                      <div style={{ fontSize:12, color:'#64748b' }}>This account uses Google Authenticator</div>
+                /* ── 2FA ENABLED ── */
+                <div style={{ background:'rgba(16,185,129,0.06)', border:'1.5px solid rgba(16,185,129,0.25)',
+                  borderRadius:12, padding:'16px 18px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+                    <div style={{ width:36, height:36, borderRadius:10, background:'rgba(16,185,129,0.15)',
+                      display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <SafetyOutlined style={{ color:'#10b981', fontSize:18 }} />
                     </div>
-                    <Tag color="success" style={{ marginLeft:'auto', fontWeight:700 }}>ACTIVE</Tag>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:800, color:'#10b981', fontSize:14 }}>2FA Active ✓</div>
+                      <div style={{ fontSize:12, color:'#64748b' }}>Google Authenticator is protecting this account</div>
+                    </div>
+                    <Tag color="success" style={{ fontWeight:700, borderRadius:20, padding:'2px 12px' }}>ENABLED</Tag>
                   </div>
-                  <div style={{ fontSize:12, color:'#64748b', marginBottom:8 }}>
-                    Enter a 6-digit code from Google Authenticator to disable 2FA:
-                  </div>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <Input
-                      placeholder="000000"
-                      maxLength={6}
-                      value={disableMfaCode}
-                      onChange={e => setDisableMfaCode(e.target.value.replace(/\D/g,''))}
-                      style={{ width:140, textAlign:'center', fontSize:18, fontWeight:700, letterSpacing:4, borderRadius:10 }}
-                    />
-                    <Button danger loading={mfaLoading} onClick={confirmDisableMfa}
-                      style={{ borderRadius:10, fontWeight:700 }}>
-                      Disable 2FA
-                    </Button>
+                  <div style={{ background:'#fff', borderRadius:10, padding:'12px 14px', border:'1px solid rgba(16,185,129,0.15)' }}>
+                    <div style={{ fontSize:12, color:'#64748b', marginBottom:8, fontWeight:600 }}>
+                      🔑 To disable 2FA, enter a code from your authenticator app:
+                    </div>
+                    <div style={{ display:'flex', gap:8 }}>
+                      <Input placeholder="6-digit code" maxLength={6} value={disableMfaCode}
+                        onChange={e => setDisableMfaCode(e.target.value.replace(/\D/g,''))}
+                        style={{ width:160, textAlign:'center', fontSize:22, fontWeight:800,
+                          letterSpacing:6, borderRadius:10, border:'2px solid #e2e8f0' }} />
+                      <Button danger loading={mfaLoading} onClick={confirmDisableMfa}
+                        disabled={disableMfaCode.length !== 6}
+                        style={{ borderRadius:10, fontWeight:700, height:40 }}>
+                        Disable 2FA
+                      </Button>
+                    </div>
                   </div>
                 </div>
+              ) : !mfaSetup ? (
+                /* ── 2FA DISABLED — step 0: call to action ── */
+                <div style={{ background:'rgba(99,102,241,0.04)', border:'1.5px dashed rgba(99,102,241,0.3)',
+                  borderRadius:12, padding:'20px', textAlign:'center' }}>
+                  <div style={{ fontSize:32, marginBottom:8 }}>🔐</div>
+                  <div style={{ fontWeight:800, fontSize:15, color:'#1e293b', marginBottom:4 }}>
+                    Two-Factor Authentication is OFF
+                  </div>
+                  <div style={{ fontSize:13, color:'#64748b', marginBottom:16 }}>
+                    Add an extra layer of security using Google Authenticator
+                  </div>
+                  <Button type="primary" icon={<QrcodeOutlined />} loading={mfaLoading} onClick={startMfaSetup}
+                    size="large"
+                    style={{ borderRadius:10, fontWeight:700, background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                      border:'none', boxShadow:'0 4px 14px rgba(99,102,241,0.4)', height:44, paddingInline:28 }}>
+                    Enable Google Authenticator
+                  </Button>
+                </div>
               ) : (
-                /* ── 2FA is OFF — show enable option ── */
+                /* ── 2FA SETUP — step 1+2: scan + verify ── */
                 <div>
-                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12,
-                    background:'rgba(99,102,241,0.06)', border:'1px solid rgba(99,102,241,0.2)',
-                    borderRadius:10, padding:'10px 14px' }}>
-                    <SafetyOutlined style={{ color:'#94a3b8', fontSize:18 }} />
-                    <div>
-                      <div style={{ fontWeight:700, color:'#475569', fontSize:13 }}>2FA is DISABLED</div>
-                      <div style={{ fontSize:12, color:'#94a3b8' }}>Add Google Authenticator for extra security</div>
-                    </div>
-                    <Tag color="default" style={{ marginLeft:'auto', fontWeight:700 }}>OFF</Tag>
+                  {/* Steps indicator */}
+                  <div style={{ display:'flex', gap:0, marginBottom:20 }}>
+                    {['Scan QR Code', 'Verify Code', 'Done!'].map((s, i) => (
+                      <div key={s} style={{ flex:1, textAlign:'center' }}>
+                        <div style={{ display:'flex', alignItems:'center' }}>
+                          {i > 0 && <div style={{ flex:1, height:2, background: i === 1 ? '#6366f1' : '#e2e8f0', marginTop:-10 }} />}
+                          <div style={{
+                            width:28, height:28, borderRadius:'50%', margin:'0 auto',
+                            background: i <= 1 ? '#6366f1' : '#e2e8f0',
+                            color: i <= 1 ? '#fff' : '#94a3b8',
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            fontWeight:800, fontSize:13,
+                          }}>{i + 1}</div>
+                          {i < 2 && <div style={{ flex:1, height:2, background:'#e2e8f0', marginTop:-10 }} />}
+                        </div>
+                        <div style={{ fontSize:11, color: i <= 1 ? '#6366f1' : '#94a3b8', marginTop:4, fontWeight:600 }}>{s}</div>
+                      </div>
+                    ))}
                   </div>
 
-                  {!mfaSetup ? (
-                    <Button icon={<QrcodeOutlined />} loading={mfaLoading} onClick={startMfaSetup}
-                      style={{ borderRadius:10, fontWeight:700, borderColor:'#6366f1', color:'#6366f1' }}>
-                      Setup Google Authenticator
-                    </Button>
-                  ) : (
-                    <div>
-                      <Alert type="info" showIcon style={{ marginBottom:12, borderRadius:10 }}
-                        message="Scan the QR code with Google Authenticator"
-                        description={
-                          <div style={{ fontSize:12 }}>
-                            Open <strong>Google Authenticator</strong> → Add account → Scan QR code.<br/>
-                            Or manually enter secret: <code style={{ background:'#f1f5f9', padding:'2px 6px', borderRadius:4, fontSize:11 }}>{mfaSetup.secret}</code>
-                          </div>
-                        }
-                      />
-
-                      {/* QR Code rendered via Google Charts API (no external SDK needed) */}
-                      <div style={{ textAlign:'center', margin:'12px 0' }}>
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(mfaSetup.otpUri)}`}
-                          alt="2FA QR Code"
-                          style={{ borderRadius:12, border:'3px solid #e2e8f0', padding:4 }}
-                          width={180} height={180}
-                        />
-                      </div>
-
-                      <div style={{ fontSize:12, color:'#64748b', marginBottom:8 }}>
-                        After scanning, enter the 6-digit code to confirm:
-                      </div>
-                      <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                        <Input
-                          placeholder="000000"
-                          maxLength={6}
-                          value={mfaCode}
-                          onChange={e => setMfaCode(e.target.value.replace(/\D/g,''))}
-                          style={{ width:140, textAlign:'center', fontSize:20, fontWeight:800, letterSpacing:6, borderRadius:10 }}
-                        />
-                        <Button type="primary" loading={mfaLoading} onClick={confirmEnableMfa}
-                          disabled={mfaCode.length !== 6}
-                          style={{ borderRadius:10, fontWeight:700, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none' }}>
-                          Verify &amp; Enable 2FA
-                        </Button>
-                        <Button onClick={() => { setMfaSetup(null); setMfaCode(''); }}
-                          style={{ borderRadius:10 }}>
-                          Cancel
-                        </Button>
-                      </div>
+                  {/* Step 1: QR code */}
+                  <div style={{ background:'#fafbff', border:'1px solid rgba(99,102,241,0.12)',
+                    borderRadius:12, padding:'16px', marginBottom:14, textAlign:'center' }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#1e293b', marginBottom:4 }}>
+                      📱 Open Google Authenticator → Add account → Scan QR code
                     </div>
-                  )}
+                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>
+                      Or manually enter the key:&nbsp;
+                      <code style={{ background:'#f1f5f9', padding:'3px 8px', borderRadius:6,
+                        fontSize:12, fontWeight:700, color:'#6366f1', letterSpacing:1 }}>
+                        {mfaSetup.secret}
+                      </code>
+                    </div>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(mfaSetup.otpUri)}`}
+                      alt="2FA QR Code"
+                      style={{ borderRadius:14, border:'4px solid #6366f1',
+                        boxShadow:'0 8px 24px rgba(99,102,241,0.25)' }}
+                      width={200} height={200}
+                    />
+                  </div>
+
+                  {/* Step 2: Enter code */}
+                  <div style={{ background:'#fff', border:'1px solid rgba(99,102,241,0.15)',
+                    borderRadius:12, padding:'16px' }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#1e293b', marginBottom:12 }}>
+                      ✅ Step 2 — Enter the 6-digit code from your app to confirm:
+                    </div>
+                    <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                      <Input placeholder="0 0 0 0 0 0" maxLength={6} value={mfaCode}
+                        onChange={e => setMfaCode(e.target.value.replace(/\D/g,''))}
+                        style={{ width:180, textAlign:'center', fontSize:24, fontWeight:900,
+                          letterSpacing:8, borderRadius:10, border:'2px solid #6366f1',
+                          background:'#eef1ff', height:50 }} />
+                      <Button type="primary" loading={mfaLoading} onClick={confirmEnableMfa}
+                        disabled={mfaCode.length !== 6} size="large"
+                        style={{ borderRadius:10, fontWeight:700, height:50, paddingInline:22,
+                          background:'linear-gradient(135deg,#059669,#06b6d4)', border:'none' }}>
+                        Verify &amp; Enable 2FA
+                      </Button>
+                      <Button onClick={() => { setMfaSetup(null); setMfaCode(''); }}
+                        style={{ borderRadius:10, height:50 }}>Cancel</Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </FormSection>
