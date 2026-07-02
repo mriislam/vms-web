@@ -85,7 +85,7 @@ const COLUMNS_DEF = [
   {
     key: 'role', columnTitle: 'Role', title: 'Role', dataIndex: 'role', width: 100,
     defaultVisible: false,
-    render: (v) => <Tag color={roleColor[v]}>{v.toUpperCase()}</Tag>,
+    render: (v) => v ? <Tag color={roleColor[v]}>{v.toUpperCase()}</Tag> : '—',
   },
   {
     key: 'status', columnTitle: 'Status', title: 'Status', dataIndex: 'status', width: 100,
