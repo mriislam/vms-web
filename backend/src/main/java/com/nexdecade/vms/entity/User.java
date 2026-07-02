@@ -1,19 +1,27 @@
 package com.nexdecade.vms.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.nexdecade.vms.listener.TenantEntityListener;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity @Table(name = "users")
+@EntityListeners(TenantEntityListener.class)
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
-public class User {
+public class User implements TenantAware {
+
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "tenant_id")
+    private Long tenantId;
 
     @Column(nullable = false, unique = true, length = 50)
     private String username;
@@ -28,7 +36,7 @@ public class User {
     @Column(nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(nullable = false, length = 10, columnDefinition = "VARCHAR(10) DEFAULT 'operator'")
+    @Column(nullable = false, length = 20, columnDefinition = "VARCHAR(20) DEFAULT 'operator'")
     private String role;
 
     @Column(length = 20)
@@ -46,7 +54,6 @@ public class User {
     @Column(length = 500)
     private String fcmToken;
 
-    // ── 2FA (Google Authenticator TOTP) ──────────────────────
     @Column(length = 64)
     private String  mfaSecret;
 

@@ -22,7 +22,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
+    private final JwtAuthFilter      jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
     @Bean
@@ -32,7 +32,13 @@ public class SecurityConfig {
             .cors(cors -> {})
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/login", "/api/auth/verify-mfa", "/api/auth/logout", "/api/health").permitAll()
+                .requestMatchers(
+                    "/api/auth/login",
+                    "/api/auth/verify-mfa",
+                    "/api/auth/logout",
+                    "/api/health",
+                    "/api/tenants/resolve/**"   // public — frontend resolves slug before login
+                ).permitAll()
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authProvider())

@@ -1,16 +1,24 @@
 package com.nexdecade.vms.entity;
 
+import com.nexdecade.vms.listener.TenantEntityListener;
 import jakarta.persistence.*;
+import jakarta.persistence.EntityListeners;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDateTime;
 
+@EntityListeners(TenantEntityListener.class)
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @Entity @Table(name = "audit_log")
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
-public class AuditLog {
+public class AuditLog implements TenantAware {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "tenant_id")
+    private Long tenantId;
 
     @CreationTimestamp
     private LocalDateTime timestamp;

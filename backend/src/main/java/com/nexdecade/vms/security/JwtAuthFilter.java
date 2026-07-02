@@ -18,7 +18,7 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private final JwtUtil jwtUtil;
+    private final JwtUtil                jwtUtil;
     private final UserDetailsServiceImpl userDetailsService;
 
     @Override
@@ -31,7 +31,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        String token = header.substring(7);
+        String token    = header.substring(7);
         String username = null;
         try { username = jwtUtil.extractUsername(token); } catch (Exception ignored) {}
 
@@ -41,6 +41,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 var auth = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
                 SecurityContextHolder.getContext().setAuthentication(auth);
+
+                // Populate TenantContext; TenantFilterInterceptor enables the Hibernate filter from it
+                Long   tenantId   = jwtUtil.extractTenantId(token);
+                String tenantSlug = jwtUtil.extractTenantSlug(token);
+                if (tenantId != null) TenantContext.set(tenantId, tenantSlug);
             }
         }
         chain.doFilter(req, res);

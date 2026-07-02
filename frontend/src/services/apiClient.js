@@ -43,8 +43,9 @@ apiClient.interceptors.response.use(
     // Auth endpoints like /auth/verify-mfa legitimately return 401 for wrong codes
     // — intercepting those would incorrectly send the user back to login mid-flow.
     if (error.response?.status === 401 && !isAuthEndpoint) {
+      const { tenantSlug } = useAuthStore.getState();
       useAuthStore.getState().clearAuth();
-      window.location.href = '/login';
+      window.location.href = tenantSlug ? `/${tenantSlug}/login` : '/login';
     }
     return Promise.reject(error);
   }

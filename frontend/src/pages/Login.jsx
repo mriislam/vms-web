@@ -1,9 +1,9 @@
 import {
-  LockOutlined, MobileOutlined, ReloadOutlined, UserOutlined,
+  LockOutlined, ReloadOutlined, UserOutlined,
 } from '@ant-design/icons';
-import { Button, Form, Input, Spin, Typography } from 'antd';
+import { Button, Form, Input, Typography } from 'antd';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useLogin } from '../hooks/useAuth';
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '../services/apiClient';
@@ -114,6 +114,7 @@ export default function LoginPage() {
   const { mutate: login, isPending, error } = useLogin();
   const setAuth  = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
+  const { tenantSlug } = useParams(); // present when route is /:tenantSlug/login
 
   // Reset OTP when step changes
   useEffect(() => { if (step === 'mfa') setOtp(''); }, [step]);
@@ -126,22 +127,23 @@ export default function LoginPage() {
 
   // Step 1: credentials
   async function onFinish(vals) {
+    const payload = { ...vals, tenantSlug: tenantSlug ?? null };
     try {
-      const res  = await apiClient.post('/auth/login', vals);
+      const res  = await apiClient.post('/auth/login', payload);
       const data = res.data?.data ?? res.data;
       if (data?.mfaRequired) {
-        // 2FA required — go to OTP step
         setMfaData({ mfaToken: data.mfaToken, username: data.username });
         setStep('mfa');
       } else if (data?.token) {
-        // No 2FA — set auth directly from this response, no second API call
-        setAuth({ token: data.token, username: data.username, fullName: data.fullName, role: data.role });
-        navigate('/dashboard');
+        setAuth({ token: data.token, username: data.username, fullName: data.fullName,
+          role: data.role, tenantId: data.tenantId, tenantSlug: data.tenantSlug, tenantName: data.tenantName });
+        const slug = data.tenantSlug || tenantSlug;
+        navigate(slug ? `/${slug}/dashboard` : '/super-admin');
       } else {
-        login(vals); // fallback: let hook handle
+        login(payload);
       }
     } catch {
-      login(vals); // wrong password — hook displays error
+      login(payload);
     }
   }
 
@@ -154,10 +156,11 @@ export default function LoginPage() {
         { mfaToken: mfaData.mfaToken, code: otp });
       const data = res.data?.data;
       if (data?.token) {
-        // data.fullName matches LoginResponse.java field name (not data.name)
         setAuth({ token: data.token, username: data.username ?? mfaData.username,
-          fullName: data.fullName, role: data.role });
-        navigate('/dashboard');
+          fullName: data.fullName, role: data.role, tenantId: data.tenantId,
+          tenantSlug: data.tenantSlug, tenantName: data.tenantName });
+        const slug = data.tenantSlug || tenantSlug;
+        navigate(slug ? `/${slug}/dashboard` : '/super-admin');
       } else {
         setMfaErr('Verification failed. Please try again.');
       }

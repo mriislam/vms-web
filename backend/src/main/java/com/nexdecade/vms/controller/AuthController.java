@@ -3,7 +3,9 @@ package com.nexdecade.vms.controller;
 import com.nexdecade.vms.dto.ApiResponse;
 import com.nexdecade.vms.dto.LoginRequest;
 import com.nexdecade.vms.dto.LoginResponse;
+import com.nexdecade.vms.entity.Tenant;
 import com.nexdecade.vms.entity.User;
+import com.nexdecade.vms.repository.TenantRepository;
 import com.nexdecade.vms.repository.UserRepository;
 import com.nexdecade.vms.security.JwtUtil;
 import com.nexdecade.vms.service.AuditLogService;
@@ -33,13 +35,13 @@ public class AuthController {
     private final JwtUtil               jwtUtil;
     private final UserDetailsService    userDetailsService;
     private final UserRepository        userRepository;
+    private final TenantRepository      tenantRepo;
     private final AuditLogService       auditLogService;
     private final TotpService           totpService;
 
-    // Temp store: mfaToken → username (valid 5 min; in production use Redis)
+    // mfaToken → username (short-lived; use Redis in production)
     private final Map<String, String> mfaPending = new ConcurrentHashMap<>();
 
-    // ── Step 1: Credentials ───────────────────────────────────────────────────
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<?>> login(
             @Valid @RequestBody LoginRequest req,
@@ -57,15 +59,28 @@ public class AuthController {
 
         User user = userRepository.findByUsername(req.getUsername()).orElseThrow();
 
-        // ── If 2FA is enabled → return mfaRequired flag ──────────────────────
+        // Tenant validation: if tenantSlug provided, check user belongs to that tenant
+        if (req.getTenantSlug() != null && !req.getTenantSlug().isBlank()) {
+            Tenant tenant = tenantRepo.findBySlug(req.getTenantSlug()).orElse(null);
+            if (tenant == null) {
+                return ResponseEntity.status(401).body(ApiResponse.error("Organization not found"));
+            }
+            if (!"active".equals(tenant.getStatus()) && !"trial".equals(tenant.getStatus())) {
+                return ResponseEntity.status(403).body(ApiResponse.error("Organization account is suspended"));
+            }
+            if (user.getTenantId() == null || !tenant.getId().equals(user.getTenantId())) {
+                auditLogService.log(req.getUsername(), null, "Auth", "Login",
+                    "Login failed — wrong organization: " + req.getTenantSlug(), ip, "failed");
+                return ResponseEntity.status(401).body(ApiResponse.error("User not found in this organization"));
+            }
+        }
+
+        // 2FA required?
         if (Boolean.TRUE.equals(user.getMfaEnabled()) && user.getMfaSecret() != null) {
-            // Generate a short-lived MFA token (use username as key)
             String mfaToken = java.util.UUID.randomUUID().toString();
             mfaPending.put(mfaToken, user.getUsername());
-
             auditLogService.log(user.getUsername(), user.getRole(), "Auth", "Login",
                 "Credentials verified — MFA required", ip, "pending");
-
             return ResponseEntity.ok(ApiResponse.ok(Map.of(
                 "mfaRequired", true,
                 "mfaToken",    mfaToken,
@@ -73,11 +88,9 @@ public class AuthController {
             )));
         }
 
-        // ── No 2FA → issue token immediately ─────────────────────────────────
         return issueToken(user, ip);
     }
 
-    // ── Step 2: Verify TOTP code ──────────────────────────────────────────────
     @PostMapping("/verify-mfa")
     public ResponseEntity<ApiResponse<?>> verifyMfa(
             @RequestBody Map<String, String> body,
@@ -90,7 +103,6 @@ public class AuthController {
         if (mfaToken == null || code == null)
             return ResponseEntity.badRequest().body(ApiResponse.error("mfaToken and code are required"));
 
-        // Peek without removing — only consume token on success so user can retry
         String username = mfaPending.get(mfaToken);
         if (username == null)
             return ResponseEntity.status(400).body(ApiResponse.error("MFA session expired. Please log in again."));
@@ -99,29 +111,22 @@ public class AuthController {
         if (!totpService.verify(user.getMfaSecret(), code)) {
             auditLogService.log(username, user.getRole(), "Auth", "MFA",
                 "Invalid TOTP code", ip, "failed");
-            // Return 400 (not 401) so the frontend interceptor does NOT redirect to /login
             return ResponseEntity.status(400).body(ApiResponse.error("Incorrect code. Check the app and try again."));
         }
 
-        // Correct code — consume the token and issue JWT
         mfaPending.remove(mfaToken);
         return issueToken(user, ip);
     }
 
-    // ── Setup 2FA: generate secret + QR URI (authenticated) ──────────────────
     @GetMapping("/setup-mfa")
     public ResponseEntity<ApiResponse<Map<String, String>>> setupMfa() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User   user     = userRepository.findByUsername(username).orElseThrow();
-
         String secret   = totpService.generateSecret();
         String otpUri   = totpService.buildOtpAuthUri(
             user.getEmail() != null ? user.getEmail() : username, secret);
-
-        // Store secret temporarily (not yet confirmed)
         user.setMfaSecret(secret);
         userRepository.save(user);
-
         return ResponseEntity.ok(ApiResponse.ok(Map.of(
             "secret",  secret,
             "otpUri",  otpUri,
@@ -129,44 +134,35 @@ public class AuthController {
         )));
     }
 
-    // ── Enable 2FA: verify the first code from authenticator ─────────────────
     @PostMapping("/enable-mfa")
     public ResponseEntity<ApiResponse<String>> enableMfa(@RequestBody Map<String, String> body) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         String code     = body.get("code");
         User   user     = userRepository.findByUsername(username).orElseThrow();
-
         if (user.getMfaSecret() == null)
             return ResponseEntity.badRequest().body(ApiResponse.error("Run /setup-mfa first"));
-
         if (!totpService.verify(user.getMfaSecret(), code))
             return ResponseEntity.status(400).body(ApiResponse.error("Code incorrect — scan the QR code again"));
-
         user.setMfaEnabled(true);
         userRepository.save(user);
         return ResponseEntity.ok(ApiResponse.ok("2FA enabled successfully"));
     }
 
-    // ── Disable 2FA ───────────────────────────────────────────────────────────
     @PostMapping("/disable-mfa")
     public ResponseEntity<ApiResponse<String>> disableMfa(@RequestBody Map<String, String> body) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         String code     = body.get("code");
         User   user     = userRepository.findByUsername(username).orElseThrow();
-
         if (!Boolean.TRUE.equals(user.getMfaEnabled()))
             return ResponseEntity.ok(ApiResponse.ok("2FA was not enabled"));
-
         if (!totpService.verify(user.getMfaSecret(), code))
             return ResponseEntity.status(400).body(ApiResponse.error("Invalid code"));
-
         user.setMfaEnabled(false);
         user.setMfaSecret(null);
         userRepository.save(user);
         return ResponseEntity.ok(ApiResponse.ok("2FA disabled"));
     }
 
-    /** Admin resets (disables) 2FA for any user by their username */
     @PostMapping("/reset-mfa/{username}")
     public ResponseEntity<ApiResponse<String>> adminResetMfa(@PathVariable String username) {
         User user = userRepository.findByUsername(username)
@@ -182,19 +178,28 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("Logged out", null));
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
     private ResponseEntity<ApiResponse<?>> issueToken(User user, String ip) {
-        UserDetails ud    = userDetailsService.loadUserByUsername(user.getUsername());
-        String      token = jwtUtil.generate(ud);
+        UserDetails ud = userDetailsService.loadUserByUsername(user.getUsername());
+
+        // Resolve tenant name and slug from the user's tenantId
+        String tenantSlug = null;
+        String tenantName = null;
+        if (user.getTenantId() != null) {
+            Tenant t = tenantRepo.findById(user.getTenantId()).orElse(null);
+            if (t != null) { tenantSlug = t.getSlug(); tenantName = t.getName(); }
+        }
+
+        String token = jwtUtil.generate(ud, user.getTenantId(), tenantSlug);
 
         user.setLastLogin(LocalDateTime.now());
         user.setLoginCount(user.getLoginCount() + 1);
         userRepository.save(user);
 
         auditLogService.log(user.getUsername(), user.getRole(), "Auth", "Login",
-            "Successful login", ip, "success");
+            "Successful login" + (tenantName != null ? " [" + tenantName + "]" : ""), ip, "success");
 
-        return ResponseEntity.ok(ApiResponse.ok(
-            new LoginResponse(token, user.getUsername(), user.getFullName(), user.getRole())));
+        return ResponseEntity.ok(ApiResponse.ok(new LoginResponse(
+            token, user.getUsername(), user.getFullName(), user.getRole(),
+            user.getTenantId(), tenantSlug, tenantName)));
     }
 }

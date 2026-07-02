@@ -1,18 +1,26 @@
 package com.nexdecade.vms.entity;
 
+import com.nexdecade.vms.listener.TenantEntityListener;
 import jakarta.persistence.*;
+import jakarta.persistence.EntityListeners;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+@EntityListeners(TenantEntityListener.class)
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @Entity @Table(name = "driver_leave")
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
-public class DriverLeave {
+public class DriverLeave implements TenantAware {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "tenant_id")
+    private Long tenantId;
 
     @Column(nullable = false, length = 100)
     private String driverName;

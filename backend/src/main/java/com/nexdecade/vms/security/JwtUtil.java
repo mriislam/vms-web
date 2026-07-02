@@ -24,17 +24,35 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
+    /** Generate token without tenant claims (super-admin or legacy). */
     public String generate(UserDetails user) {
-        return Jwts.builder()
+        return generate(user, null, null);
+    }
+
+    /** Generate token with tenant claims embedded. */
+    public String generate(UserDetails user, Long tenantId, String tenantSlug) {
+        var builder = Jwts.builder()
                 .subject(user.getUsername())
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(key())
-                .compact();
+                .expiration(new Date(System.currentTimeMillis() + expiration));
+        if (tenantId   != null) builder.claim("tid",   tenantId);
+        if (tenantSlug != null) builder.claim("tslug", tenantSlug);
+        return builder.signWith(key()).compact();
     }
 
     public String extractUsername(String token) {
         return claims(token).getSubject();
+    }
+
+    public Long extractTenantId(String token) {
+        Object v = claims(token).get("tid");
+        if (v == null) return null;
+        return v instanceof Number n ? n.longValue() : Long.parseLong(v.toString());
+    }
+
+    public String extractTenantSlug(String token) {
+        Object v = claims(token).get("tslug");
+        return v != null ? v.toString() : null;
     }
 
     public boolean isValid(String token, UserDetails user) {

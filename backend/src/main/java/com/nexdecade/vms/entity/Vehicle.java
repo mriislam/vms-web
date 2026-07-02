@@ -1,19 +1,27 @@
 package com.nexdecade.vms.entity;
 
+import com.nexdecade.vms.listener.TenantEntityListener;
 import jakarta.persistence.*;
+import jakarta.persistence.EntityListeners;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+@EntityListeners(TenantEntityListener.class)
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @Entity @Table(name = "vehicles")
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
-public class Vehicle {
+public class Vehicle implements TenantAware {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "tenant_id")
+    private Long tenantId;
 
     @Column(nullable = false, unique = true, length = 20)
     private String regNo;
