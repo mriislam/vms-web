@@ -30,33 +30,42 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // ── Login ────────────────────────────────────────────────────────────────────
-  Future<void> login(String username, String password) async {
+  Future<void> login(String username, String password, String tenantSlug) async {
     _loading = true;
     notifyListeners();
     try {
-      final res  = await ApiClient.post('/auth/login',
-          {'username': username, 'password': password}, isAuth: true);
-      print("The response is $res");
+      final res = await ApiClient.post('/auth/login', {
+        'username':   username,
+        'password':   password,
+        'tenantSlug': tenantSlug.trim().isEmpty ? null : tenantSlug.trim(),
+      }, isAuth: true);
+
       final data = res['data'] as Map<String, dynamic>;
-      _token     = data['token'] as String;
-      final raw  = data['user']  as Map<String, dynamic>? ??
-          {'username': username, 'role': data['role'] ?? 'operator'};
-      _user = AppUser.fromJson(raw);
+      _token = data['token'] as String;
+
+      // Build user map from flat login response (no nested 'user' object)
+      final userMap = <String, dynamic>{
+        'username':   data['username']   ?? username,
+        'fullName':   data['fullName'],
+        'role':       data['role']       ?? 'operator',
+        'tenantId':   data['tenantId'],
+        'tenantSlug': data['tenantSlug'],
+        'tenantName': data['tenantName'],
+      };
+      _user = AppUser.fromJson(userMap);
 
       // Check if user has a linked driver record
       try {
         final me = await ApiClient.get('/driver/me');
         final meData = me['data'] as Map<String, dynamic>? ?? {};
-
         if (meData.containsKey('driverId')) {
-          _user = AppUser.fromJson({...raw, 'isDriver': true});
+          _user = AppUser.fromJson({...userMap, 'isDriver': true});
         }
       } catch (_) {}
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('vms_token', _token!);
-      await prefs.setString('vms_user', jsonEncode(raw));
-      print("get vms user ${prefs.getString("vms_user")}");
+      await prefs.setString('vms_user', jsonEncode(_user!.toJson()));
     } finally {
       _loading = false;
       notifyListeners();

@@ -11,9 +11,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _userCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
-  bool _showPass  = false;
+  final _tenantCtrl = TextEditingController(text: 'default');
+  final _userCtrl   = TextEditingController();
+  final _passCtrl   = TextEditingController();
+  bool _showPass    = false;
   String? _error;
 
   Future<void> _login() async {
@@ -23,7 +24,11 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     try {
-      await context.read<AuthProvider>().login(_userCtrl.text.trim(), _passCtrl.text);
+      await context.read<AuthProvider>().login(
+        _userCtrl.text.trim(),
+        _passCtrl.text,
+        _tenantCtrl.text.trim(),
+      );
     } catch (e) {
       setState(() => _error = e.toString().replaceAll('Exception: ', ''));
     }
@@ -82,6 +87,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Text('Sign in to your account', style: TextStyle(
                   color: AppColors.textMuted, fontSize: 14)),
                 const SizedBox(height: 24),
+
+                const Text('Organization', style: TextStyle(fontSize: 13,
+                  fontWeight: FontWeight.w600, color: AppColors.text)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller:      _tenantCtrl,
+                  autocorrect:     false,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    hintText:   'Organization slug (e.g. default)',
+                    prefixIcon: Icon(Icons.business_outlined, color: AppColors.primary),
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 const Text('Username', style: TextStyle(fontSize: 13,
                   fontWeight: FontWeight.w600, color: AppColors.text)),

@@ -1,12 +1,15 @@
 // ── User ──────────────────────────────────────────────────────────────────────
 class AppUser {
-  final String username;
+  final String  username;
   final String? fullName;
   final String? email;
   final String? phone;
   final String? department;
   final String  role;
   final bool    isDriver;
+  final int?    tenantId;
+  final String? tenantSlug;
+  final String? tenantName;
 
   AppUser({
     required this.username,
@@ -15,22 +18,41 @@ class AppUser {
     this.phone,
     this.department,
     required this.role,
-    this.isDriver = false,
+    this.isDriver  = false,
+    this.tenantId,
+    this.tenantSlug,
+    this.tenantName,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
-    username:   j['username'] as String? ?? '',
-    fullName:   j['fullName'] as String?,
-    email:      j['email']    as String?,
-    phone:      j['phone']    as String?,
+    username:   j['username']   as String? ?? '',
+    fullName:   j['fullName']   as String?,
+    email:      j['email']      as String?,
+    phone:      j['phone']      as String?,
     department: j['department'] as String?,
-    role:       j['role']     as String? ?? 'operator',
-    isDriver:   j['isDriver'] as bool? ?? false,
+    role:       j['role']       as String? ?? 'operator',
+    isDriver:   j['isDriver']   as bool?   ?? false,
+    tenantId:   (j['tenantId']  as num?)?.toInt(),
+    tenantSlug: j['tenantSlug'] as String?,
+    tenantName: j['tenantName'] as String?,
   );
+
+  Map<String, dynamic> toJson() => {
+    'username':   username,
+    'fullName':   fullName,
+    'email':      email,
+    'phone':      phone,
+    'department': department,
+    'role':       role,
+    'isDriver':   isDriver,
+    'tenantId':   tenantId,
+    'tenantSlug': tenantSlug,
+    'tenantName': tenantName,
+  };
 
   String get displayName => fullName?.isNotEmpty == true ? fullName! : username;
 
-  bool get isAdmin  => role == 'admin' || role == 'manager';
+  bool get isAdmin      => role == 'admin' || role == 'manager';
   bool get isDriverRole => role == 'driver' || isDriver;
 }
 
