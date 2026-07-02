@@ -1,5 +1,6 @@
 import {
   AlertOutlined,
+  ApartmentOutlined,
   AppstoreOutlined,
   AuditOutlined,
   CarOutlined,
@@ -104,7 +105,8 @@ const MENU_GROUPS = [
   {
     key: 'people', color: '#ec4899', label: 'People', icon: <TeamOutlined />,
     children: [
-      { key: '/employees',    icon: <TeamOutlined />,         color: '#8b5cf6', label: 'Employees' },
+      { key: '/departments',  icon: <ApartmentOutlined />,    color: '#8b5cf6', label: 'Departments' },
+      { key: '/employees',    icon: <TeamOutlined />,         color: '#6366f1', label: 'Employees' },
       { key: '/driver-leave', icon: <UserOutlined />,         color: '#ec4899', label: 'Driver Leave' },
       { key: '/coordinators', icon: <TeamOutlined />,         color: '#10b981', label: 'Coordinators' },
       { key: '/notices',      icon: <NotificationOutlined />, color: '#f59e0b', label: 'Notices' },

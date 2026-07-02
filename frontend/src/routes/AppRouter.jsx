@@ -39,6 +39,7 @@ import PMMaintenance from '../pages/PMMaintenance';
 import MaintenanceApproval from '../pages/MaintenanceApproval';
 import DriverTrips from '../pages/DriverTrips';
 import Employees from '../pages/Employees';
+import Department from '../pages/Department';
 
 function ProtectedRoute({ children }) {
   const token = useAuthStore((s) => s.token);
@@ -93,6 +94,7 @@ export default function AppRouter() {
         <Route path="maintenance-approval"  element={<MaintenanceApproval />} />
         <Route path="driver/trips"          element={<DriverTrips />} />
         <Route path="employees"             element={<Employees />} />
+        <Route path="departments"           element={<Department />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
