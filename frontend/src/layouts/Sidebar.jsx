@@ -139,7 +139,6 @@ function Chip({ icon, color, active, isDark, size = 32 }) {
       fontSize: size * 0.44, lineHeight: 1,
       transition: 'all 0.22s ease',
       boxShadow: active ? `0 0 16px ${color}50, 0 2px 8px ${color}25` : 'none',
-      border: `1.5px solid ${active ? `${color}50` : `${color}28`}`,
     }}>
       {icon}
     </span>
@@ -245,9 +244,9 @@ function CollapsedNav({ activeKey, isDark, navigate }) {
 
 // Expanded sidebar: full Ant Design Menu
 function buildMenuItems(groups, activeKey, isDark) {
-  const groupLabelColor      = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)';
-  const activeGroupLabelColor = isDark ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.82)';
-  const itemColor            = isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.62)';
+  const groupLabelColor       = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)';
+  const activeGroupLabelColor = isDark ? 'rgba(255,255,255,0.9)'  : 'rgba(0,0,0,0.82)';
+  const itemColor             = isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.62)';
 
   return groups.map((g) => {
     const isGroupActive = g.children
@@ -256,15 +255,17 @@ function buildMenuItems(groups, activeKey, isDark) {
 
     const item = {
       key: g.key,
-      icon: <Chip icon={g.icon} color={g.color} active={isGroupActive} isDark={isDark} size={28} />,
       label: (
-        <span style={{
-          fontWeight: 700, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase',
-          color: isGroupActive ? activeGroupLabelColor : groupLabelColor,
-          transition: 'color 0.2s',
-        }}>
-          {g.label}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Chip icon={g.icon} color={g.color} active={isGroupActive} isDark={isDark} size={26} />
+          <span style={{
+            fontWeight: 700, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase',
+            color: isGroupActive ? activeGroupLabelColor : groupLabelColor,
+            transition: 'color 0.2s',
+          }}>
+            {g.label}
+          </span>
+        </div>
       ),
     };
 
@@ -273,22 +274,23 @@ function buildMenuItems(groups, activeKey, isDark) {
         const isActive = c.key === activeKey;
         return {
           key: c.key,
-          icon: <Chip icon={c.icon} color={c.color} active={isActive} isDark={isDark} size={24} />,
           label: (
-            <span style={{
-              fontSize: 13, fontWeight: isActive ? 600 : 400,
-              color: isActive ? c.color : itemColor,
-              transition: 'color 0.2s',
-            }}>
-              {c.label}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Chip icon={c.icon} color={c.color} active={isActive} isDark={isDark} size={22} />
+              <span style={{
+                fontSize: 13, fontWeight: isActive ? 600 : 400,
+                color: isActive ? c.color : itemColor,
+                transition: 'color 0.2s',
+              }}>
+                {c.label}
+              </span>
+            </div>
           ),
           style: isActive ? {
             background: isDark
               ? `linear-gradient(90deg,${c.color}14 0%,transparent 100%)`
               : `linear-gradient(90deg,${c.color}10 0%,transparent 100%)`,
             borderLeft: `2px solid ${c.color}`,
-            paddingLeft: 10,
           } : {},
         };
       });
