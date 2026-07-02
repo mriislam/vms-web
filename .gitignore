@@ -75,3 +75,7 @@ backend/.github/
 
 # ── Claude Code ──────────────────────────────────────────────────
 .claude/
+
+# ── React Native / Expo ──────────────────────────────────────────
+vms-mobile/.expo/
+vms-mobile/node_modules/
