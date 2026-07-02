@@ -12,9 +12,10 @@ const { Text } = Typography;
 const YEAR = new Date().getFullYear();
 
 const DEMO = [
-  { role: 'Admin',    username: 'admin',    password: 'admin123',    color: '#f43f5e' },
-  { role: 'Manager',  username: 'manager',  password: 'admin123',    color: '#f59e0b' },
-  { role: 'Operator', username: 'operator', password: 'admin123',    color: '#6366f1' },
+  { role: 'Admin',       username: 'admin',      password: 'admin123', color: '#f43f5e' },
+  { role: 'Manager',     username: 'manager',    password: 'admin123', color: '#f59e0b' },
+  { role: 'Operator',    username: 'operator',   password: 'admin123', color: '#6366f1' },
+  { role: 'Super Admin', username: 'superadmin', password: 'admin123', color: '#7c3aed', superAdmin: true },
 ];
 
 // ── Animated background particles ────────────────────────────────────────────
@@ -127,7 +128,8 @@ export default function LoginPage() {
 
   // Step 1: credentials
   async function onFinish(vals) {
-    const payload = { ...vals, tenantSlug: tenantSlug ?? null };
+    const isSuperAdminLogin = selected === 'Super Admin' || (!tenantSlug && !vals.tenantSlug);
+    const payload = { ...vals, tenantSlug: isSuperAdminLogin ? null : (tenantSlug ?? null) };
     try {
       const res  = await apiClient.post('/auth/login', payload);
       const data = res.data?.data ?? res.data;
@@ -323,8 +325,8 @@ export default function LoginPage() {
                 <Text style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'0.1em', textTransform:'uppercase', display:'block', marginBottom:10 }}>
                   Quick Login
                 </Text>
-                <div style={{ display:'flex', gap:8 }}>
-                  {DEMO.map(u => (
+                <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+                  {DEMO.filter(u => !u.superAdmin).map(u => (
                     <button key={u.role} onClick={() => pick(u)} style={{
                       flex:1, padding:'10px 6px', borderRadius:12, cursor:'pointer',
                       textAlign:'center', transition:'all 0.18s',
@@ -338,6 +340,20 @@ export default function LoginPage() {
                     </button>
                   ))}
                 </div>
+                {DEMO.filter(u => u.superAdmin).map(u => (
+                  <button key={u.role} onClick={() => pick(u)} style={{
+                    width:'100%', padding:'8px 12px', borderRadius:12, cursor:'pointer',
+                    textAlign:'center', transition:'all 0.18s', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                    background: selected === u.role ? `linear-gradient(135deg,${u.color},#6366f1)` : '#faf5ff',
+                    border: `2px solid ${selected === u.role ? u.color : '#e9d5ff'}`,
+                    boxShadow: selected === u.role ? `0 4px 14px ${u.color}44` : '0 1px 3px rgba(124,58,237,0.08)',
+                    transform: selected === u.role ? 'translateY(-2px)' : 'none',
+                    outline:'none',
+                  }}>
+                    <span style={{ fontSize:14 }}>👑</span>
+                    <div style={{ fontWeight:800, fontSize:12, color: selected === u.role ? '#fff' : u.color }}>{u.role}</div>
+                  </button>
+                ))}
               </div>
 
               <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
